@@ -18,7 +18,7 @@ export const ThemeToggle = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative rounded-full hover:bg-accent text-primary dark:text-white overflow-hidden"
+          className="relative rounded-full hover:bg-white/20 text-white overflow-hidden"
         >
           <AnimatePresence mode="wait" initial={false}>
             {effectiveTheme === 'light' ? (

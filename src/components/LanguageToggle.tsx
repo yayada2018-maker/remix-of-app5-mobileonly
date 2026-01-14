@@ -53,7 +53,7 @@ export const LanguageToggle = ({ variant = 'icon' }: LanguageToggleProps) => {
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-full hover:bg-accent text-primary dark:text-white"
+          className="rounded-full hover:bg-white/20 text-white"
         >
           <Globe className="h-5 w-5" />
         </Button>
