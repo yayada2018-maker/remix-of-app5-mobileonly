@@ -17,6 +17,7 @@ interface Content {
   poster_path?: string;
   tmdb_id?: string | number;
   content_type: string;
+  recent_episode?: string;
 }
 
 interface MobilePaginatedGridProps {
@@ -40,10 +41,10 @@ const MobilePaginatedGrid = ({ contentType, title }: MobilePaginatedGridProps) =
 
       const { data, error, count } = await supabase
         .from('content')
-        .select('*', { count: 'exact' })
+        .select('id, title, poster_path, tmdb_id, content_type, recent_episode', { count: 'exact' })
         .eq('content_type', contentType)
         .in('status', ['active', 'Ended'])
-        .order('popularity', { ascending: false })
+        .order('created_at', { ascending: false })
         .range(start, end);
 
       if (!error && data) {
@@ -168,6 +169,15 @@ const MobilePaginatedGrid = ({ contentType, title }: MobilePaginatedGridProps) =
                 <div className="absolute top-1 left-1 bg-background/80 text-foreground text-xs px-1.5 py-0.5 rounded z-10">
                   {contentType === 'movie' ? 'Movie' : 'Serie'}
                 </div>
+
+                {/* Recent Episode Ribbon for Series */}
+                {contentType === 'series' && item.recent_episode && (
+                  <div className="absolute top-1 right-0 z-10">
+                    <div className="bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-l-md shadow-lg">
+                      {item.recent_episode}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
