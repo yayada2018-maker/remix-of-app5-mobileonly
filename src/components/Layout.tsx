@@ -4,8 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import MobileHeader from './MobileHeader';
 import MobileSidebar from './MobileSidebar';
 import BottomNav from './BottomNav';
+import Header from './Header';
+import Sidebar from './Sidebar';
 import { PullToRefresh } from './PullToRefresh';
 import { Capacitor } from '@capacitor/core';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,11 +20,12 @@ const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isNative = Capacitor.isNativePlatform();
+  const isMobile = useIsMobile();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
 
   const handleRefresh = async () => {
-    // Reload the current page
     window.location.reload();
   };
 
@@ -34,7 +39,7 @@ const Layout = ({ children }: LayoutProps) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
@@ -44,7 +49,6 @@ const Layout = ({ children }: LayoutProps) => {
     return null;
   }
 
-  // Mobile-only layout
   const isHome = location.pathname === '/';
 
   // Native app: allow content to render behind the transparent status bar on Home.
@@ -53,20 +57,39 @@ const Layout = ({ children }: LayoutProps) => {
     ? (isHome ? '' : 'native-safe-area-top')
     : 'pt-[env(safe-area-inset-top)]';
 
+  // Mobile / Native layout (keeps current behavior)
+  if (isNative || isMobile) {
+    return (
+      <div className={`min-h-screen bg-background dark:bg-black ${topInsetClass}`.trim()}>
+        <MobileHeader onMenuClick={() => setMobileSidebarOpen(true)} />
+        <MobileSidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+
+        <PullToRefresh onRefresh={handleRefresh}>
+          <main className="min-h-screen pb-16 px-[1px]">{children}</main>
+        </PullToRefresh>
+
+        <BottomNav />
+      </div>
+    );
+  }
+
+  // Desktop layout (restore full desktop header)
   return (
     <div className={`min-h-screen bg-background dark:bg-black ${topInsetClass}`.trim()}>
-      <MobileHeader onMenuClick={() => setMobileSidebarOpen(true)} />
-      <MobileSidebar isOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
-      
-      <PullToRefresh onRefresh={handleRefresh}>
-        <main className="min-h-screen pb-16 px-[1px]">
-          {children}
-        </main>
-      </PullToRefresh>
+      <Header onMenuClick={() => setDesktopMenuOpen(true)} />
 
-      <BottomNav />
+      <Sheet open={desktopMenuOpen} onOpenChange={setDesktopMenuOpen}>
+        <SheetContent side="left" className="p-0">
+          <Sidebar onToggle={() => setDesktopMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <PullToRefresh onRefresh={handleRefresh}>
+        <main className="min-h-screen">{children}</main>
+      </PullToRefresh>
     </div>
   );
 };
 
 export default Layout;
+
