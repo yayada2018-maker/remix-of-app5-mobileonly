@@ -3,6 +3,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { User, Heart, Share2, Loader2 } from "lucide-react";
 import { getImageUrl } from "./utils";
+import { useSiteSettingsOptional } from "@/contexts/SiteSettingsContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface CastMember {
   id: string;
@@ -28,14 +30,27 @@ const CastMemberProfile = ({
   onShare,
   isFollowLoading = false
 }: CastMemberProfileProps) => {
+  const siteSettings = useSiteSettingsOptional();
+  const { effectiveTheme } = useTheme();
+  
+  // Get theme colors from site settings
+  const themeColors = effectiveTheme === 'dark' 
+    ? siteSettings?.settings?.dark_mode 
+    : siteSettings?.settings?.light_mode;
+  
+  const buttonColor = themeColors?.button_color || (effectiveTheme === 'dark' ? '#D50055' : '#D50055');
+  const buttonTextColor = themeColors?.button_text_color || '#FFFFFF';
+  const textColor = themeColors?.text_color || (effectiveTheme === 'dark' ? '#FFFFFF' : '#0F172A');
+  const linkColor = themeColors?.link_color || (effectiveTheme === 'dark' ? '#00ABD6' : '#0078D4');
+
   return (
     <div className="bg-transparent">
       <div className={`flex ${isMobile ? 'flex-col items-center gap-4' : 'items-start gap-6'}`}>
         {/* Profile Image */}
         <div className={`
           ${isMobile ? 'w-28 h-36' : 'w-36 h-44'} 
-          rounded-xl overflow-hidden bg-gradient-to-br from-gray-700 to-gray-800 
-          shadow-xl flex-shrink-0 border-2 border-gray-600/50 relative group
+          rounded-xl overflow-hidden bg-gradient-to-br from-muted to-muted/80 
+          shadow-xl flex-shrink-0 border-2 border-border/50 relative group
         `}>
           {getImageUrl(castMember.profile_url) ? (
             <img 
@@ -44,9 +59,9 @@ const CastMemberProfile = ({
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/80">
               <Avatar className={`${isMobile ? 'h-14 w-14' : 'h-18 w-18'}`}>
-                <AvatarFallback className="bg-gray-600 text-white">
+                <AvatarFallback className="bg-muted-foreground/20 text-foreground">
                   <User size={isMobile ? 18 : 22} />
                 </AvatarFallback>
               </Avatar>
@@ -57,11 +72,17 @@ const CastMemberProfile = ({
         {/* Info Section */}
         <div className={`flex-1 ${isMobile ? 'text-center w-full' : ''}`}>
           <div className="bg-transparent">
-            <h1 className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold mb-2 text-white`}>
+            <h1 
+              className={`${isMobile ? 'text-2xl' : 'text-3xl'} font-bold mb-2`}
+              style={{ color: textColor }}
+            >
               {castMember.actor_name}
             </h1>
             {castMember.character_name && (
-              <p className={`${isMobile ? 'text-lg' : 'text-xl'} text-cyan-400 mb-3 font-medium`}>
+              <p 
+                className={`${isMobile ? 'text-lg' : 'text-xl'} mb-3 font-medium`}
+                style={{ color: linkColor }}
+              >
                 as {castMember.character_name}
               </p>
             )}
@@ -74,6 +95,7 @@ const CastMemberProfile = ({
                 onClick={onFollow}
                 disabled={isFollowLoading}
                 className="gap-2"
+                style={!isFollowing ? { backgroundColor: buttonColor, color: buttonTextColor } : {}}
               >
                 {isFollowLoading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -86,7 +108,7 @@ const CastMemberProfile = ({
                 variant="outline"
                 size="sm"
                 onClick={onShare}
-                className="gap-2 border-gray-600 text-black bg-white hover:bg-gray-100"
+                className="gap-2 border-border"
               >
                 <Share2 size={16} />
                 Share
