@@ -207,10 +207,10 @@ export const SupportUsOverlay = ({
   return (
     <>
       <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-        {/* Countdown circle - positioned at 50% of video height (right side) */}
-        <div className="absolute top-1/2 right-3 -translate-y-1/2 flex items-center gap-1.5">
-          <div className="relative w-7 h-7">
-            <svg className="w-7 h-7 -rotate-90" viewBox="0 0 36 36">
+        {/* Countdown circle - positioned for both portrait and landscape */}
+        <div className="absolute top-1/2 right-3 sm:right-6 -translate-y-1/2 flex flex-col sm:flex-row items-center gap-1.5">
+          <div className="relative w-8 h-8 sm:w-10 sm:h-10">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18"
                 cy="18"
@@ -232,7 +232,7 @@ export const SupportUsOverlay = ({
                 className="transition-all duration-1000 ease-linear"
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+            <span className="absolute inset-0 flex items-center justify-center text-white text-xs sm:text-sm font-bold">
               {countdown}
             </span>
           </div>
@@ -240,24 +240,24 @@ export const SupportUsOverlay = ({
             variant="ghost"
             size="sm"
             onClick={onSkip}
-            className="text-white/70 hover:text-white hover:bg-white/10 text-[10px] px-1 h-6 gap-0.5"
+            className="text-white/70 hover:text-white hover:bg-white/10 text-[10px] sm:text-xs px-1.5 sm:px-2 h-6 sm:h-7 gap-0.5"
           >
-            Skip <ChevronRight className="w-2.5 h-2.5" />
+            Skip <ChevronRight className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
           </Button>
         </div>
 
-        {/* Main Content - Scaled down 50% */}
-        <div className="text-center max-w-[200px] mx-2 space-y-2">
+        {/* Main Content - Responsive for landscape */}
+        <div className="text-center w-full max-w-[200px] sm:max-w-[320px] landscape:max-w-[400px] mx-auto px-4 space-y-2 sm:space-y-3">
           {/* Initial Step - Support Us prompt */}
           {step === 'initial' && (
             <>
-              <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-pink-500 to-red-500 flex items-center justify-center animate-pulse">
-                <Heart className="w-5 h-5 text-white" fill="white" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full bg-gradient-to-br from-pink-500 to-red-500 flex items-center justify-center animate-pulse">
+                <Heart className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="white" />
               </div>
               
               <div className="space-y-1">
-                <h3 className="text-white text-sm font-bold">Support Us</h3>
-                <p className="text-white/70 text-[10px] leading-tight">
+                <h3 className="text-white text-base sm:text-lg font-bold">Support Us</h3>
+                <p className="text-white/70 text-xs sm:text-sm leading-tight">
                   Love this content? Support us!
                 </p>
               </div>
@@ -265,9 +265,9 @@ export const SupportUsOverlay = ({
               <Button
                 onClick={handleSupportClick}
                 size="sm"
-                className="w-full h-7 gap-1 text-xs bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-semibold"
+                className="w-full max-w-[240px] sm:max-w-[280px] mx-auto h-9 sm:h-10 gap-1.5 text-sm sm:text-base bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-semibold rounded-lg"
               >
-                <Heart className="w-3 h-3" />
+                <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
                 Support
               </Button>
             </>
@@ -276,15 +276,15 @@ export const SupportUsOverlay = ({
           {/* Wallet Step - Show balance */}
           {step === 'wallet' && (
             <>
-              <div className="w-10 h-10 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-primary" />
+              <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full bg-primary/20 flex items-center justify-center">
+                <Wallet className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
               </div>
               
               <div className="space-y-1">
-                <h3 className="text-white text-sm font-bold">Your Wallet</h3>
-                <div className="flex items-center justify-center gap-1">
-                  <Wallet className="w-3 h-3 text-primary" />
-                  <span className="text-primary text-lg font-bold">
+                <h3 className="text-white text-base sm:text-lg font-bold">Your Wallet</h3>
+                <div className="flex items-center justify-center gap-1.5">
+                  <Wallet className="w-4 h-4 text-primary" />
+                  <span className="text-primary text-xl sm:text-2xl font-bold">
                     {walletLoading ? '...' : `$${balance.toFixed(2)}`}
                   </span>
                 </div>
@@ -292,24 +292,24 @@ export const SupportUsOverlay = ({
 
               {balance <= 0 ? (
                 <>
-                  <p className="text-white/70 text-[10px]">
+                  <p className="text-white/70 text-xs sm:text-sm">
                     Wallet empty. Top up first!
                   </p>
                   <Button
                     onClick={handleTopupClick}
                     size="sm"
-                    className="w-full h-7 gap-1 text-xs bg-primary hover:bg-primary/90 font-semibold"
+                    className="w-full max-w-[240px] mx-auto h-9 sm:h-10 gap-1.5 text-sm bg-primary hover:bg-primary/90 font-semibold rounded-lg"
                   >
-                    <Wallet className="w-3 h-3" />
+                    <Wallet className="w-4 h-4" />
                     Top Up
                   </Button>
                 </>
               ) : (
                 <>
-                  {/* Amount Selection - Redesigned */}
-                  <div className="space-y-2">
-                    <p className="text-white/70 text-[10px]">Choose amount:</p>
-                    <div className="grid grid-cols-4 gap-1">
+                  {/* Amount Selection - Responsive for landscape */}
+                  <div className="space-y-2 sm:space-y-3">
+                    <p className="text-white/70 text-xs sm:text-sm">Choose amount:</p>
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2 max-w-[280px] sm:max-w-[320px] mx-auto">
                       {supportAmounts.map((amount) => {
                         const isSelected = supportAmount === amount && !customAmount;
                         return (
@@ -317,7 +317,7 @@ export const SupportUsOverlay = ({
                             key={amount}
                             onClick={() => handleAmountSelect(amount)}
                             disabled={balance < amount}
-                            className="h-7 rounded-full text-[10px] font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="h-8 sm:h-9 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                             style={{
                               backgroundColor: isSelected ? colors.selectedBg : colors.buttonBg,
                               color: isSelected ? colors.selectedText : colors.buttonText,
@@ -329,14 +329,14 @@ export const SupportUsOverlay = ({
                       })}
                     </div>
                     
-                    {/* Custom Amount Input */}
-                    <div className="flex items-center gap-1">
+                    {/* Custom Amount Input - Responsive */}
+                    <div className="flex items-center gap-2 max-w-[280px] sm:max-w-[320px] mx-auto">
                       <Input
                         type="number"
                         placeholder="Custom"
                         value={customAmount}
                         onChange={(e) => handleCustomAmountChange(e.target.value)}
-                        className="h-7 text-[10px] rounded-full text-center px-2"
+                        className="h-8 sm:h-9 text-xs sm:text-sm rounded-full text-center px-3"
                         style={{
                           backgroundColor: colors.buttonBg,
                           color: colors.buttonText,
@@ -348,12 +348,12 @@ export const SupportUsOverlay = ({
                       <button
                         onClick={handleConfirmSupport}
                         disabled={isSupporting || !isValidAmount || balance < finalAmount}
-                        className="h-7 px-3 rounded-full text-[10px] font-medium flex items-center gap-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white"
+                        className="h-8 sm:h-9 px-4 rounded-full text-xs sm:text-sm font-medium flex items-center gap-1.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white whitespace-nowrap"
                       >
                         {isSupporting ? (
-                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                          <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
                         ) : (
-                          <Heart className="w-2.5 h-2.5" fill="white" />
+                          <Heart className="w-3 h-3 sm:w-4 sm:h-4" fill="white" />
                         )}
                         ${isValidAmount ? finalAmount.toFixed(2) : '0.00'}
                       </button>
@@ -364,9 +364,9 @@ export const SupportUsOverlay = ({
                     variant="ghost"
                     size="sm"
                     onClick={handleTopupClick}
-                    className="w-full h-6 gap-1 text-[10px] text-white/50 hover:text-white hover:bg-white/10"
+                    className="w-full max-w-[200px] mx-auto h-7 sm:h-8 gap-1.5 text-xs sm:text-sm text-white/50 hover:text-white hover:bg-white/10"
                   >
-                    <Wallet className="w-2.5 h-2.5" />
+                    <Wallet className="w-3 h-3 sm:w-4 sm:h-4" />
                     Top Up Wallet
                   </Button>
                 </>
@@ -376,7 +376,7 @@ export const SupportUsOverlay = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => setStep('initial')}
-                className="text-white/50 hover:text-white text-[10px] h-5"
+                className="text-white/50 hover:text-white text-xs sm:text-sm h-6 sm:h-7"
               >
                 ← Back
               </Button>

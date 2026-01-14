@@ -31,22 +31,11 @@ export const ScreenLockOverlay = ({
     }
   }, [isLocked]);
 
-  if (!isLocked && !showControls) return null;
+  // Only render when locked - the lock button is now in the bottom control bar
+  if (!isLocked) return null;
 
   return (
     <>
-      {/* Lock/Unlock Button - Always visible when controls are shown */}
-      {showControls && !isLocked && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleLock}
-          className="h-8 w-8 text-white bg-black/40 hover:bg-black/60 rounded-lg"
-        >
-          <Lock className="h-4 w-4" />
-        </Button>
-      )}
-
       {/* Locked Screen Overlay */}
       {isLocked && (
         <div 

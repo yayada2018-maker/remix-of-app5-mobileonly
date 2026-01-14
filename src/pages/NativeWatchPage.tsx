@@ -652,11 +652,11 @@ const NativeWatchPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-background text-foreground pt-[env(safe-area-inset-top)]">
         <SocialShareMeta title={content.title} description={content.overview || ''} image={content.backdrop_path || content.poster_path} type={contentType === 'movie' ? 'video.movie' : 'video.tv_show'} />
         <div className="flex flex-col">
           {/* Video Player */}
-          <div className={`bg-black sticky top-0 z-50 ${isVideoFullscreen ? 'fixed inset-0 z-[9999]' : ''}`}>
+          <div className={`bg-black sticky top-[env(safe-area-inset-top)] z-50 ${isVideoFullscreen ? 'fixed inset-0 z-[9999] !top-0 !pt-0' : ''}`}>
             {videoPlayerElement}
           </div>
               
