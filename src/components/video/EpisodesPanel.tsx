@@ -327,10 +327,10 @@ export const EpisodesPanel = ({
                       <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
                     )}
                     
-                    {/* Episode Number - 50% smaller for portrait mode */}
+                    {/* Episode Number - 50% smaller for mobile */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <span 
-                        className="text-white/90 font-bold text-lg sm:text-xl drop-shadow-lg"
+                        className="text-white/90 font-bold text-2xl sm:text-4xl md:text-5xl drop-shadow-lg"
                         style={{
                           textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
                         }}
