@@ -4,6 +4,8 @@ import { StoredCastMember, StoredCastCredit } from "@/services/castService";
 import CastMemberOverview from "./CastMemberOverview";
 import CastMemberFilmography from "./CastMemberFilmography";
 import CastMemberDetails from "./CastMemberDetails";
+import { useSiteSettingsOptional } from "@/contexts/SiteSettingsContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface CastMemberDialogTabsProps {
   detailedCast: StoredCastMember | null;
@@ -26,13 +28,51 @@ const CastMemberDialogTabs = ({
   onTabChange,
   isMobile
 }: CastMemberDialogTabsProps) => {
+  const siteSettings = useSiteSettingsOptional();
+  const { effectiveTheme } = useTheme();
+  
+  // Get theme colors from site settings
+  const themeColors = effectiveTheme === 'dark' 
+    ? siteSettings?.settings?.dark_mode 
+    : siteSettings?.settings?.light_mode;
+  
+  const buttonColor = themeColors?.button_color || (effectiveTheme === 'dark' ? '#D50055' : '#D50055');
+  const buttonTextColor = themeColors?.button_text_color || '#FFFFFF';
+
   return (
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={onTabChange} className="h-full flex flex-col">
         <TabsList className="flex-shrink-0 w-full border-b border-border bg-transparent px-0.5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="filmography">Filmography</TabsTrigger>
-          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger 
+            value="overview"
+            className="data-[state=active]:text-white"
+            style={{ 
+              backgroundColor: activeTab === 'overview' ? buttonColor : 'transparent',
+              color: activeTab === 'overview' ? buttonTextColor : undefined
+            }}
+          >
+            Overview
+          </TabsTrigger>
+          <TabsTrigger 
+            value="filmography"
+            className="data-[state=active]:text-white"
+            style={{ 
+              backgroundColor: activeTab === 'filmography' ? buttonColor : 'transparent',
+              color: activeTab === 'filmography' ? buttonTextColor : undefined
+            }}
+          >
+            Filmography
+          </TabsTrigger>
+          <TabsTrigger 
+            value="details"
+            className="data-[state=active]:text-white"
+            style={{ 
+              backgroundColor: activeTab === 'details' ? buttonColor : 'transparent',
+              color: activeTab === 'details' ? buttonTextColor : undefined
+            }}
+          >
+            Details
+          </TabsTrigger>
         </TabsList>
         
         <div className="flex-1 min-h-0 overflow-hidden">
