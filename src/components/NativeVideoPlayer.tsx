@@ -910,14 +910,14 @@ const NativeVideoPlayer = ({
           </div>
         )}
         
-        {/* Embed/Iframe Fullscreen Button - Bottom Right for smooth toggle */}
+        {/* Embed/Iframe Fullscreen Button - Bottom Right for smooth toggle - 100% transparent background */}
         {sourceType === 'iframe' && !accessLoading && !isLocked && showControls && (
           <div className="absolute bottom-4 right-4 z-[60] transition-opacity duration-300">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={toggleFullscreen}
-              className="h-10 w-10 text-white bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full shadow-lg"
+              className="h-10 w-10 text-white hover:text-white/80 bg-transparent hover:bg-transparent rounded-full"
             >
               {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
             </Button>
