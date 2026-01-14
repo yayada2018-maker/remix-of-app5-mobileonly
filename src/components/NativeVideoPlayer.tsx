@@ -271,7 +271,7 @@ const NativeVideoPlayer = ({
 
   // Support Us overlay logic based on checkpoints
   useEffect(() => {
-    if (!supportUsSettings.enabled || !playerSettings.showSupportUsOverlay || isSubscribed || !duration) return;
+    if (!supportUsSettings.enabled || !playerSettings.showSupportUsOverlay || hasActiveSubscription || !duration) return;
     
     const progress = (currentTime / duration) * 100;
     
@@ -292,7 +292,7 @@ const NativeVideoPlayer = ({
       setSupportUsShownAt85(true);
       setShowSupportUsOverlay(true);
     }
-  }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, isSubscribed, supportUsShownAtStart, supportUsShownAt50, supportUsShownAt85]);
+  }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription, supportUsShownAtStart, supportUsShownAt50, supportUsShownAt85]);
 
   // Video event handlers (only for MP4 sources)
   useEffect(() => {
