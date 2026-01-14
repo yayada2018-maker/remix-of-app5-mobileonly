@@ -42,33 +42,36 @@ const CastMemberDialogTabs = ({
   return (
     <div className="h-full flex flex-col">
       <Tabs value={activeTab} onValueChange={onTabChange} className="h-full flex flex-col">
-        <TabsList className="flex-shrink-0 w-full border-b border-border bg-transparent px-0.5">
+        <TabsList className="flex-shrink-0 w-full border-b border-border bg-transparent px-0.5 rounded-none shadow-none">
           <TabsTrigger 
             value="overview"
-            className="data-[state=active]:text-white"
+            className="rounded-none shadow-none data-[state=active]:shadow-none"
             style={{ 
               backgroundColor: activeTab === 'overview' ? buttonColor : 'transparent',
-              color: activeTab === 'overview' ? buttonTextColor : undefined
+              color: activeTab === 'overview' ? buttonTextColor : undefined,
+              boxShadow: 'none'
             }}
           >
             Overview
           </TabsTrigger>
           <TabsTrigger 
             value="filmography"
-            className="data-[state=active]:text-white"
+            className="rounded-none shadow-none data-[state=active]:shadow-none"
             style={{ 
               backgroundColor: activeTab === 'filmography' ? buttonColor : 'transparent',
-              color: activeTab === 'filmography' ? buttonTextColor : undefined
+              color: activeTab === 'filmography' ? buttonTextColor : undefined,
+              boxShadow: 'none'
             }}
           >
             Filmography
           </TabsTrigger>
           <TabsTrigger 
             value="details"
-            className="data-[state=active]:text-white"
+            className="rounded-none shadow-none data-[state=active]:shadow-none"
             style={{ 
               backgroundColor: activeTab === 'details' ? buttonColor : 'transparent',
-              color: activeTab === 'details' ? buttonTextColor : undefined
+              color: activeTab === 'details' ? buttonTextColor : undefined,
+              boxShadow: 'none'
             }}
           >
             Details
