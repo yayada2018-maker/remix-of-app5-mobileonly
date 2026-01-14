@@ -711,10 +711,18 @@ const NativeWatchPage = () => {
                 ) : null}
               </div>
 
-              {/* Main Content */}
+              {/* Ad Slot: Between Cast & Tabs */}
+              <div className="px-4 py-2">
+                <NativeBannerAdSlot 
+                  placement="watch_cast_tabs_banner" 
+                  position="inline"
+                  pageLocation="watch"
+                  className="rounded-lg"
+                />
+              </div>
+
+              {/* Main Content with Tabs */}
               <div className="px-4 py-3 space-y-4">
-                <NativeBannerAdSlot placement="watch_cast_tabs_banner" className="!px-0" />
-                
                 <CollapsibleTabsSection
                   key={`native-${content?.id || id}`}
                   isSeriesContent={isSeriesContent}

@@ -14,6 +14,10 @@ interface AppAd {
   is_active: boolean;
   is_test_mode: boolean;
   priority: number;
+  frequency_cap?: number | null;
+  show_after_seconds?: number | null;
+  reward_amount?: number | null;
+  reward_type?: string | null;
 }
 
 interface AdMobSettings {
@@ -24,10 +28,12 @@ interface AdMobSettings {
 interface NativeBannerAdSlotProps {
   placement: string;
   className?: string;
-  position?: 'top' | 'bottom';
+  position?: 'top' | 'bottom' | 'inline';
   pageLocation?: string;
   /** Hide ad during video fullscreen mode */
   hideInFullscreen?: boolean;
+  /** Callback when rewarded ad is completed */
+  onRewardEarned?: (amount: number, type: string) => void;
 }
 
 // AdMob Plugin interface
@@ -40,6 +46,10 @@ interface AdMobPlugin {
     isTesting?: boolean;
   }) => Promise<void>;
   hideBanner: () => Promise<void>;
+  prepareInterstitial?: (options: { adId: string; isTesting?: boolean }) => Promise<void>;
+  showInterstitial?: () => Promise<void>;
+  prepareRewardVideoAd?: (options: { adId: string; isTesting?: boolean }) => Promise<void>;
+  showRewardVideoAd?: () => Promise<{ type: string; amount: number }>;
 }
 
 // Get AdMob plugin
@@ -53,9 +63,9 @@ const getAdMobPlugin = (): AdMobPlugin | null => {
 };
 
 /**
- * Native AdMob banner ad slot for Capacitor apps
+ * Universal Native Ad Slot for Capacitor apps
+ * Supports all ad types: banner, interstitial, rewarded, native, app_open
  * Falls back to web ads for non-native platforms
- * Supports all ad types configured in admin dashboard
  * 
  * Respects edge-to-edge immersive mode:
  * - Hides during fullscreen video playback
@@ -64,15 +74,17 @@ const getAdMobPlugin = (): AdMobPlugin | null => {
 export function NativeBannerAdSlot({ 
   placement, 
   className = '', 
-  position = 'bottom', 
+  position = 'inline', 
   pageLocation = 'watch',
-  hideInFullscreen = true 
+  hideInFullscreen = true,
+  onRewardEarned
 }: NativeBannerAdSlotProps) {
   const [isNative, setIsNative] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [bannerShown, setBannerShown] = useState(false);
   const [webAdCode, setWebAdCode] = useState<string | null>(null);
   const [adConfig, setAdConfig] = useState<{ ad: AppAd; settings: AdMobSettings } | null>(null);
+  const [adError, setAdError] = useState<string | null>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const [isInView, setIsInView] = useState(false);
@@ -111,13 +123,13 @@ export function NativeBannerAdSlot({
     };
   }, []);
 
-  // Fetch native AdMob config from Supabase - supports all ad types
+  // Fetch native AdMob config from Supabase - supports ALL ad types
   const fetchAdConfig = async () => {
     try {
       const platform = Capacitor.getPlatform();
       
-      // Fetch ad for this placement - any ad type for more flexibility
-      const { data: adsData } = await supabase
+      // Fetch ad for this placement - any ad type
+      const { data: adsData, error: adsError } = await supabase
         .from('app_ads')
         .select('*')
         .eq('is_active', true)
@@ -126,6 +138,10 @@ export function NativeBannerAdSlot({
         .order('priority', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (adsError) {
+        console.error('[NativeAdSlot] Error fetching ad:', adsError);
+      }
 
       // Fetch global settings
       const { data: settingsData } = await supabase
@@ -142,15 +158,21 @@ export function NativeBannerAdSlot({
       
       if (adsData && settings.enabled) {
         setAdConfig({ ad: adsData, settings });
-        console.log('[NativeBannerAd] Loaded config for placement:', placement, adsData.name, 'type:', adsData.ad_type);
+        console.log('[NativeAdSlot] Loaded config for placement:', placement, {
+          name: adsData.name,
+          type: adsData.ad_type,
+          unitId: adsData.ad_unit_id?.substring(0, 20) + '...',
+          testMode: settings.test_mode || adsData.is_test_mode
+        });
       } else {
-        console.log('[NativeBannerAd] No active ad found for placement:', placement);
+        console.log('[NativeAdSlot] No active ad found for placement:', placement, 'Trying web fallback...');
         // Try fetching web ad as fallback
-        fetchWebAd();
+        await fetchWebAd();
       }
     } catch (error) {
-      console.error('[NativeBannerAd] Error fetching config:', error);
-      fetchWebAd();
+      console.error('[NativeAdSlot] Error fetching config:', error);
+      setAdError('Failed to load ad configuration');
+      await fetchWebAd();
     } finally {
       setIsLoading(false);
     }
@@ -170,52 +192,100 @@ export function NativeBannerAdSlot({
 
       if (data?.ad_code) {
         setWebAdCode(data.ad_code);
+        console.log('[NativeAdSlot] Web ad loaded for placement:', placement);
       }
     } catch (error) {
-      console.log('[NativeBannerAd] Could not fetch web ad for placement:', placement);
+      console.log('[NativeAdSlot] Could not fetch web ad for placement:', placement);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Show native AdMob banner with safe area margin
-  const showBanner = useCallback(async () => {
-    if (!adConfig || bannerShown || !isInView) return;
+  // Show native AdMob ad based on type
+  const showAd = useCallback(async () => {
+    if (!adConfig || !isInView) return;
     
     // Don't show if in fullscreen mode
     if (hideInFullscreen && isFullscreen) {
-      console.log('[NativeBannerAd] Skipping - fullscreen active');
+      console.log('[NativeAdSlot] Skipping - fullscreen active');
       return;
     }
 
     const AdMob = getAdMobPlugin();
     if (!AdMob) {
-      console.log('[NativeBannerAd] AdMob plugin not available');
+      console.log('[NativeAdSlot] AdMob plugin not available - native ads require @capacitor-community/admob');
       return;
     }
 
+    const { ad, settings } = adConfig;
+    const useTestMode = settings.test_mode || ad.is_test_mode;
+
     try {
-      const { ad, settings } = adConfig;
-      const useTestMode = settings.test_mode || ad.is_test_mode;
-      const adPosition = position === 'top' ? 'TOP_CENTER' : 'BOTTOM_CENTER';
-      
-      // Add margin for safe area (status bar at top, navigation at bottom)
-      const safeAreaMargin = position === 'top' ? 24 : 0; // Account for status bar
+      switch (ad.ad_type) {
+        case 'banner':
+        case 'native':
+          if (bannerShown) return;
+          
+          const adPosition = position === 'top' ? 'TOP_CENTER' : 
+                            position === 'bottom' ? 'BOTTOM_CENTER' : 'BOTTOM_CENTER';
+          
+          // Add margin for safe area (status bar at top, navigation at bottom)
+          const safeAreaMargin = position === 'top' ? 24 : 0;
 
-      await AdMob.showBanner({
-        adId: ad.ad_unit_id,
-        adSize: 'ADAPTIVE_BANNER',
-        position: adPosition,
-        margin: safeAreaMargin,
-        isTesting: useTestMode,
-      });
+          await AdMob.showBanner({
+            adId: ad.ad_unit_id,
+            adSize: 'ADAPTIVE_BANNER',
+            position: adPosition,
+            margin: safeAreaMargin,
+            isTesting: useTestMode,
+          });
 
-      setBannerShown(true);
-      console.log('[NativeBannerAd] Banner shown for placement:', placement, 'with margin:', safeAreaMargin);
+          setBannerShown(true);
+          console.log('[NativeAdSlot] Banner shown for placement:', placement);
+          break;
+
+        case 'interstitial':
+          if (AdMob.prepareInterstitial && AdMob.showInterstitial) {
+            await AdMob.prepareInterstitial({
+              adId: ad.ad_unit_id,
+              isTesting: useTestMode,
+            });
+            await AdMob.showInterstitial();
+            console.log('[NativeAdSlot] Interstitial shown for placement:', placement);
+          }
+          break;
+
+        case 'rewarded':
+          if (AdMob.prepareRewardVideoAd && AdMob.showRewardVideoAd) {
+            await AdMob.prepareRewardVideoAd({
+              adId: ad.ad_unit_id,
+              isTesting: useTestMode,
+            });
+            const result = await AdMob.showRewardVideoAd();
+            console.log('[NativeAdSlot] Rewarded ad completed:', result);
+            
+            if (onRewardEarned) {
+              onRewardEarned(
+                result.amount || ad.reward_amount || 1,
+                result.type || ad.reward_type || 'coins'
+              );
+            }
+          }
+          break;
+
+        case 'app_open':
+          // App open ads typically shown via different mechanism
+          console.log('[NativeAdSlot] App open ad - should be triggered on app resume');
+          break;
+
+        default:
+          console.log('[NativeAdSlot] Unknown ad type:', ad.ad_type);
+      }
     } catch (error) {
-      console.error('[NativeBannerAd] Failed to show banner:', error);
+      console.error('[NativeAdSlot] Failed to show ad:', error);
+      setAdError('Failed to display ad');
     }
-  }, [adConfig, bannerShown, isInView, placement, position, isFullscreen, hideInFullscreen]);
+  }, [adConfig, bannerShown, isInView, placement, position, isFullscreen, hideInFullscreen, onRewardEarned]);
 
   // Hide native AdMob banner
   const hideBanner = useCallback(async () => {
@@ -227,9 +297,9 @@ export function NativeBannerAdSlot({
     try {
       await AdMob.hideBanner();
       setBannerShown(false);
-      console.log('[NativeBannerAd] Banner hidden');
+      console.log('[NativeAdSlot] Banner hidden');
     } catch (error) {
-      console.error('[NativeBannerAd] Failed to hide banner:', error);
+      console.error('[NativeAdSlot] Failed to hide banner:', error);
     }
   }, [bannerShown]);
 
@@ -244,15 +314,18 @@ export function NativeBannerAdSlot({
   useEffect(() => {
     if (!isNative || !adConfig) return;
     
+    // Only handle banner/native type ads for visibility-based showing
+    if (adConfig.ad.ad_type !== 'banner' && adConfig.ad.ad_type !== 'native') return;
+    
     // Skip if in fullscreen
     if (hideInFullscreen && isFullscreen) return;
 
     if (isInView) {
-      showBanner();
+      showAd();
     } else if (bannerShown) {
       hideBanner();
     }
-  }, [isNative, adConfig, isInView, showBanner, hideBanner, bannerShown, isFullscreen, hideInFullscreen]);
+  }, [isNative, adConfig, isInView, showAd, hideBanner, bannerShown, isFullscreen, hideInFullscreen]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -275,7 +348,7 @@ export function NativeBannerAdSlot({
       return (
         <div 
           ref={slotRef} 
-          className={`w-full h-12 bg-muted/30 animate-pulse flex items-center justify-center ${className}`}
+          className={`w-full h-14 bg-muted/20 animate-pulse flex items-center justify-center rounded-md ${className}`}
           style={{ 
             paddingBottom: position === 'bottom' ? 'env(safe-area-inset-bottom, 0px)' : undefined,
             paddingTop: position === 'top' ? 'env(safe-area-inset-top, 0px)' : undefined
@@ -287,10 +360,46 @@ export function NativeBannerAdSlot({
     }
 
     if (!adConfig) {
-      return null; // No ad configured
+      // No ad configured - return empty spacer in development, nothing in production
+      if (process.env.NODE_ENV === 'development') {
+        return (
+          <div 
+            ref={slotRef}
+            className={`w-full h-14 border border-dashed border-muted-foreground/30 rounded-md flex items-center justify-center ${className}`}
+          >
+            <span className="text-xs text-muted-foreground">Ad: {placement}</span>
+          </div>
+        );
+      }
+      return null;
     }
 
-    // Native banner will overlay on top, this is just a spacer with safe area
+    // For inline position (like between cast and tabs), render a spacer
+    if (position === 'inline') {
+      return (
+        <div 
+          ref={slotRef} 
+          className={`w-full rounded-md overflow-hidden ${className}`}
+          style={{ minHeight: '60px' }}
+          data-placement={placement}
+          data-ad-type={adConfig.ad.ad_type}
+          data-banner-active={bannerShown}
+        >
+          {/* Native banner will overlay, this is positioning spacer */}
+          {adConfig.ad.ad_type === 'banner' || adConfig.ad.ad_type === 'native' ? (
+            <div className="w-full h-14 bg-muted/10 flex items-center justify-center">
+              {!bannerShown && (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                  {adConfig.ad.name || 'Loading Ad...'}
+                </span>
+              )}
+            </div>
+          ) : null}
+        </div>
+      );
+    }
+
+    // Top/bottom positioned native banner will overlay on top, this is just a spacer with safe area
     return (
       <div 
         ref={slotRef} 
@@ -300,6 +409,7 @@ export function NativeBannerAdSlot({
           paddingBottom: position === 'bottom' ? 'env(safe-area-inset-bottom, 0px)' : undefined,
         }}
         data-placement={placement}
+        data-ad-type={adConfig.ad.ad_type}
         data-banner-active={bannerShown}
       />
     );
@@ -310,7 +420,7 @@ export function NativeBannerAdSlot({
     return (
       <div 
         ref={slotRef}
-        className={`w-full ${className}`}
+        className={`w-full rounded-md overflow-hidden ${className}`}
         dangerouslySetInnerHTML={{ __html: webAdCode }}
       />
     );
