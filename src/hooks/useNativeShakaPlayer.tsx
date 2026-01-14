@@ -289,7 +289,7 @@ export function useNativeShakaPlayer({
       // Get available tracks
       const variantTracks = player.getVariantTracks();
       const qualities = [...new Set(variantTracks.map((t: any) => `${t.height}p`))]
-        .sort((a, b) => parseInt(b) - parseInt(a)) as string[];
+        .sort((a: string, b: string) => parseInt(b) - parseInt(a)) as string[];
       onQualitiesLoaded?.(qualities);
 
       // Audio tracks
