@@ -91,10 +91,10 @@ const VoiceSearchButton = ({ onSearchResult }: VoiceSearchButtonProps) => {
           variant="ghost"
           size="icon"
           onClick={handleClick}
-          className={`rounded-full hover:bg-accent ${
+          className={`rounded-full hover:bg-white/20 ${
             isListening
-              ? 'text-red-500 animate-pulse'
-              : 'text-primary dark:text-white'
+              ? 'text-red-400 animate-pulse'
+              : 'text-white'
           }`}
           title={isListening ? 'Stop listening' : 'Start voice search'}
         >
@@ -104,7 +104,7 @@ const VoiceSearchButton = ({ onSearchResult }: VoiceSearchButtonProps) => {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs rounded-full hover:bg-accent text-primary dark:text-white"
+            className="h-6 px-2 text-xs rounded-full hover:bg-white/20 text-white font-semibold"
           >
             {languages.find(l => l.code === selectedLanguage)?.code.split('-')[0].toUpperCase()}
           </Button>

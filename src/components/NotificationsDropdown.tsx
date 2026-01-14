@@ -29,7 +29,7 @@ export const NotificationsDropdown = () => {
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative text-gray-800 dark:text-white"
+          className="relative text-white hover:bg-white/20"
           aria-label="Notifications"
         >
           <Bell className="h-5 w-5" />
