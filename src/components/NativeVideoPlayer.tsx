@@ -223,6 +223,29 @@ const NativeVideoPlayer = ({
     }
   }, [allAvailableSources, currentServer]);
 
+  // Extract available qualities from current server's quality_urls
+  useEffect(() => {
+    if (currentServer?.quality_urls && typeof currentServer.quality_urls === 'object') {
+      const qualities = Object.keys(currentServer.quality_urls as Record<string, string>);
+      // Sort qualities by resolution (480p, 720p, 1080p, etc.)
+      const sortedQualities = qualities.sort((a, b) => {
+        const getResolution = (q: string) => parseInt(q.replace(/\D/g, '')) || 0;
+        return getResolution(a) - getResolution(b);
+      });
+      setAvailableQualities(sortedQualities);
+      // Set default quality if not set
+      if (!currentQuality || currentQuality === 'auto') {
+        setCurrentQuality(sortedQualities[sortedQualities.length - 1] || 'auto');
+      }
+    } else if (currentServer?.quality) {
+      // Fallback to single quality from source
+      setAvailableQualities([currentServer.quality]);
+      setCurrentQuality(currentServer.quality);
+    } else {
+      setAvailableQualities([]);
+    }
+  }, [currentServer]);
+
   // Check user access
   useEffect(() => {
     const checkAccess = async () => {
@@ -503,7 +526,23 @@ const NativeVideoPlayer = ({
   const handleQualityChange = useCallback((quality: string) => {
     setCurrentQuality(quality);
     setAutoQualityEnabled(false);
-  }, []);
+    
+    // Switch to the quality URL if quality_urls is available
+    if (currentServer?.quality_urls && typeof currentServer.quality_urls === 'object') {
+      const qualityUrls = currentServer.quality_urls as Record<string, string>;
+      const newUrl = qualityUrls[quality];
+      if (newUrl && videoRef.current) {
+        const currentTime = videoRef.current.currentTime;
+        const wasPlaying = !videoRef.current.paused;
+        videoRef.current.src = newUrl;
+        videoRef.current.load();
+        videoRef.current.currentTime = currentTime;
+        if (wasPlaying) {
+          videoRef.current.play().catch(console.error);
+        }
+      }
+    }
+  }, [currentServer]);
 
   const handleAutoQualityToggle = useCallback(() => {
     setAutoQualityEnabled(!autoQualityEnabled);
@@ -776,35 +815,11 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Top Right Controls: Lock + Episodes + Server */}
+        {/* Top Right Controls: Server Selector Only */}
         {!isScreenLocked && !accessLoading && !isLocked && showControls && (
           <div className="absolute top-2 right-2 z-[60] flex items-center gap-2 transition-opacity duration-300">
-            {/* Screen Lock Button */}
-            {playerSettings.showScreenLock && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setIsScreenLocked(true)}
-                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
-              >
-                <Lock className="h-4 w-4" />
-              </Button>
-            )}
-            
-            {/* Episodes List Button - Moved to top right */}
-            {playerSettings.showEpisodesPanel && episodes.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={() => setShowEpisodesPanel(true)} 
-                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
-              >
-                <ListVideo className="h-4 w-4" />
-              </Button>
-            )}
-            
             {/* Server Selector */}
-            {playerSettings.showServerSelector && allAvailableSources.length > 1 && (
+            {playerSettings.showServerSelector && allAvailableSources.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/40 hover:bg-black/60">
@@ -818,8 +833,9 @@ const NativeVideoPlayer = ({
                 >
                   <DropdownMenuLabel className="text-white/70 text-xs">Select Server</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  {allAvailableSources.map((source) => {
+                  {allAvailableSources.map((source, index) => {
                     const isActive = currentServer?.id === source.id;
+                    const serverDisplayName = source.server_name || `Server ${index + 1}`;
                     return (
                       <DropdownMenuItem
                         key={source.id}
@@ -831,7 +847,7 @@ const NativeVideoPlayer = ({
                         className={`cursor-pointer ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-white/10 text-white"}`}
                       >
                         <ServerIcon className="h-4 w-4 mr-2" />
-                        <span className="flex-1">{source.server_name || 'Server'}</span>
+                        <span className="flex-1">{serverDisplayName}</span>
                         {source.quality && (
                           <span className="ml-2 text-xs bg-white/20 px-1.5 py-0.5 rounded">{source.quality}</span>
                         )}
@@ -912,6 +928,18 @@ const NativeVideoPlayer = ({
                 </div>
                 
                 <div className="flex items-center gap-1">
+                  {/* Screen Lock Button - Before Episodes */}
+                  {playerSettings.showScreenLock && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setIsScreenLocked(true)}
+                      className="h-8 w-8 text-white hover:bg-white/10"
+                    >
+                      <Lock className="h-4 w-4" />
+                    </Button>
+                  )}
+                  
                   {/* Episodes Button (text version for bottom bar) */}
                   {playerSettings.showEpisodesPanel && episodes.length > 0 && (
                     <Button 
