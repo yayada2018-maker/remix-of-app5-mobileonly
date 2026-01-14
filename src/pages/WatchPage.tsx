@@ -571,27 +571,67 @@ const WatchPage = () => {
     }
   }, [content?.id, allVideoSources.length, episodes, seasons, season, episode, contentType, selectedSeasonId]);
 
-  // Fetch related content
+  // Fetch related content (for recommendations)
   useEffect(() => {
     const fetchRelated = async () => {
       if (!content?.id) return;
       
       const recommendationType = type === 'anime' ? 'anime' : contentType;
       
+      // Fetch more items to allow randomization
       const { data } = await supabase
         .from('content')
         .select('id, title, poster_path, tmdb_id, content_type')
         .eq('content_type', recommendationType)
         .neq('id', content.id)
-        .limit(12);
+        .order('popularity', { ascending: false })
+        .limit(30);
       
-      if (data) {
-        setRelatedContent(data);
-        setForYouContent(data);
+      if (data && data.length > 0) {
+        // Shuffle array using Fisher-Yates algorithm
+        const shuffled = [...data].sort(() => Math.random() - 0.5);
+        // Take first 12 for related content
+        setRelatedContent(shuffled.slice(0, 12));
       }
     };
     fetchRelated();
   }, [content?.id, contentType, type]);
+
+  // Fetch "For You" content separately with different randomization
+  useEffect(() => {
+    const fetchForYou = async () => {
+      if (!content?.id) return;
+      
+      // Use content_type for matching similar content
+      const currentContentType = content.content_type;
+      
+      // Fetch different content for "For You" - mix of types
+      const { data } = await supabase
+        .from('content')
+        .select('id, title, poster_path, tmdb_id, content_type')
+        .neq('id', content.id)
+        .order('view_count', { ascending: false })
+        .limit(40);
+      
+      if (data && data.length > 0) {
+        // Prioritize content with matching type, then shuffle
+        const sameType = data.filter(item => item.content_type === currentContentType);
+        const differentType = data.filter(item => item.content_type !== currentContentType);
+        
+        // Shuffle both arrays using Fisher-Yates
+        const shuffledSame = [...sameType].sort(() => Math.random() - 0.5);
+        const shuffledDifferent = [...differentType].sort(() => Math.random() - 0.5);
+        
+        // Combine: first some same type, then different types for variety
+        const combined = [...shuffledSame.slice(0, 6), ...shuffledDifferent.slice(0, 6)];
+        
+        // Final shuffle to mix them
+        const finalShuffled = combined.sort(() => Math.random() - 0.5);
+        setForYouContent(finalShuffled.slice(0, 12));
+      }
+    };
+    fetchForYou();
+  }, [content?.id, content?.content_type]);
 
   // Fetch cast
   useEffect(() => {
