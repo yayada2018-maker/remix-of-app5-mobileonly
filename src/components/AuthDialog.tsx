@@ -108,66 +108,66 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex justify-center mb-4">
+          <div className="flex justify-center mb-2 sm:mb-4">
             <img 
               src={logo} 
               alt="KHMERZOON" 
-              className="w-16 h-16 object-contain"
+              className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
             />
           </div>
-          <DialogTitle className="text-center text-2xl">
+          <DialogTitle className="text-center text-xl sm:text-2xl">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </DialogTitle>
-          <DialogDescription className="text-center">
+          <DialogDescription className="text-center text-xs sm:text-sm">
             {isSignUp ? 'Join KHMERZOON today' : 'Welcome back to KHMERZOON'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 mt-2 sm:mt-4">
+          <div className="space-y-2 sm:space-y-3">
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-11 h-12"
+                className="pl-10 sm:pl-11 h-10 sm:h-12"
               />
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="pl-11 h-12"
+                className="pl-10 sm:pl-11 h-10 sm:h-12"
               />
             </div>
           </div>
 
           {isSignUp && (
-            <div className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
               <button
                 type="button"
                 onClick={() => setAgreedToTerms(!agreedToTerms)}
                 className="mt-0.5 flex-shrink-0"
               >
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center transition-colors ${
                   agreedToTerms 
                     ? 'bg-primary border-primary' 
                     : 'border-muted-foreground/50'
                 }`}>
-                  {agreedToTerms && <CheckCircle2 className="w-4 h-4 text-primary-foreground" />}
+                  {agreedToTerms && <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />}
                 </div>
               </button>
               <label 
-                className="text-sm text-muted-foreground cursor-pointer select-none"
+                className="text-xs sm:text-sm text-muted-foreground cursor-pointer select-none"
                 onClick={() => setAgreedToTerms(!agreedToTerms)}
               >
                 I agree to the terms and conditions
@@ -177,13 +177,13 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
           <Button 
             type="submit" 
-            className="w-full h-12" 
+            className="w-full h-10 sm:h-12" 
             disabled={loading || (isSignUp && !agreedToTerms)}
           >
             {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </Button>
 
-          <div className="relative my-4">
+          <div className="relative my-2 sm:my-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -195,7 +195,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           <Button 
             type="button" 
             variant="outline" 
-            className="w-full h-12" 
+            className="w-full h-10 sm:h-12" 
             onClick={handleGoogleSignIn}
             disabled={loading}
           >

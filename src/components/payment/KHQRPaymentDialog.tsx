@@ -403,21 +403,21 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px] bg-gradient-to-br from-background via-background to-primary/5">
+      <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
-            <img src={logo} alt="KHMERZOON" className="w-12 h-12 object-contain" />
+            <img src={logo} alt="KHMERZOON" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
             <div>
-              <DialogTitle className="text-2xl font-bold">KHMERZOON</DialogTitle>
-              <DialogDescription>Top Up Wallet using KHQR Payment</DialogDescription>
+              <DialogTitle className="text-xl sm:text-2xl font-bold">KHMERZOON</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">Top Up Wallet using KHQR Payment</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
           {paymentStatus === 'idle' && (
             <>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 <label className="text-sm font-medium">Enter Amount (USD)</label>
                 <Input
                   type="number"
@@ -426,20 +426,20 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
                   onChange={(e) => setAmount(e.target.value)}
                   min="1"
                   step="0.01"
-                  className="text-lg h-12"
+                  className="text-base sm:text-lg h-10 sm:h-12"
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Quick Select</label>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                   {quickAmounts.map((quickAmount) => (
                     <Button
                       key={quickAmount}
                       variant={amount === quickAmount.toString() ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setAmount(quickAmount.toString())}
-                      className="font-semibold"
+                      className="font-semibold text-xs sm:text-sm h-8 sm:h-9"
                     >
                       ${quickAmount}
                     </Button>
@@ -450,17 +450,17 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
               <Button
                 onClick={generateQRCode}
                 disabled={loading || !amount || parseFloat(amount) <= 0}
-                className="w-full h-12 text-lg font-semibold"
+                className="w-full h-10 sm:h-12 text-base sm:text-lg font-semibold"
                 size="lg"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Generating QR Code...
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+                    Generating...
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-5 h-5 mr-2" />
+                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Generate KHQR Payment
                   </>
                 )}
@@ -469,9 +469,9 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
           )}
 
           {paymentStatus === 'pending' && qrCode && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg shadow-lg animate-scale-in">
-                <QRCode id="qr-code-svg" value={qrCode} size={250} />
+            <div className="space-y-3 sm:space-y-4 animate-fade-in">
+              <div className="flex flex-col items-center justify-center p-4 sm:p-6 bg-white rounded-lg shadow-lg animate-scale-in">
+                <QRCode id="qr-code-svg" value={qrCode} size={Math.min(200, window.innerWidth * 0.5)} />
               </div>
 
               <div className="text-center space-y-2">
