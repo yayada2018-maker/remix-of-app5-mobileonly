@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home, Film, Tv, ThumbsUp, ThumbsDown, Share2, LayoutDashboard, Sparkles, MessageSquare, Info, ChevronDown, Wallet, Crown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 import VideoPlayer from "@/components/VideoPlayer";
 import { useIsTablet } from "@/hooks/use-tablet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -73,6 +74,7 @@ const CollapsibleTabsSection = ({
   navigate,
 }: CollapsibleTabsSectionProps) => {
   const [episodesExpanded, setEpisodesExpanded] = useState(false);
+  const { t } = useLanguage();
   
   // Filter episodes by selected season
   const filteredEpisodes = useMemo(() => {
@@ -89,32 +91,32 @@ const CollapsibleTabsSection = ({
             value="episodes"
             className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-1.5 text-xs sm:text-sm sm:px-3 sm:py-2"
           >
-            Episodes
+            {t('episodes')}
           </TabsTrigger>
         )}
         <TabsTrigger 
           value="foryou"
           className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-1.5 text-xs sm:text-sm sm:px-3 sm:py-2"
         >
-          For You
+          {t('forYou')}
         </TabsTrigger>
         <TabsTrigger 
           value="comments"
           className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-1.5 text-xs sm:text-sm sm:px-3 sm:py-2"
         >
-          Comments
+          {t('comments')}
         </TabsTrigger>
         <TabsTrigger 
           value="detail"
           className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-1.5 text-xs sm:text-sm sm:px-3 sm:py-2"
         >
-          Detail
+          {t('detail')}
         </TabsTrigger>
         <TabsTrigger 
           value="home"
           className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-2 py-1.5 text-xs sm:text-sm sm:px-3 sm:py-2"
         >
-          Home
+          {t('home')}
         </TabsTrigger>
       </TabsList>
 
@@ -147,15 +149,15 @@ const CollapsibleTabsSection = ({
               <div className="flex-1 min-w-0">
                 <p className="text-base font-bold text-white truncate">{content.title}</p>
                 <p className="text-sm text-primary font-medium">
-                  {currentEpisode ? `Watching S${seasons.find(s => s.id === selectedSeasonId)?.season_number || 1} EP${currentEpisode.episode_number}` : 'Watching'}
+                  {currentEpisode ? `${t('watching')} S${seasons.find(s => s.id === selectedSeasonId)?.season_number || 1} EP${currentEpisode.episode_number}` : t('watching')}
                 </p>
                 <p className="text-xs text-white/70">
-                  {filteredEpisodes.length} Episodes
+                  {filteredEpisodes.length} {t('episodes')}
                 </p>
               </div>
               {/* More Episodes + Expand Icon */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-xs text-white/80 font-medium">More Episodes</span>
+                <span className="text-xs text-white/80 font-medium">{t('moreEpisodes')}</span>
                 <motion.div
                   animate={{ rotate: episodesExpanded ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
@@ -190,7 +192,7 @@ const CollapsibleTabsSection = ({
                       className={`h-8 px-4 text-sm ${selectedSeasonId === season.id ? "bg-primary hover:bg-primary/90" : ""}`}
                       onClick={() => setSelectedSeasonId(season.id)}
                     >
-                      Season {season.season_number}
+                      {t('season')} {season.season_number}
                     </Button>
                   ))}
                 </div>
@@ -225,7 +227,7 @@ const CollapsibleTabsSection = ({
                         <div className="absolute top-1.5 right-1.5">
                           {isFreeEpisode ? (
                             <span className="px-2 py-0.5 text-[10px] font-bold bg-green-500 text-white rounded shadow-md uppercase tracking-wide">
-                              Free
+                              {t('free')}
                             </span>
                           ) : isRentEpisode ? (
                             <span className="px-2 py-0.5 text-[10px] font-bold bg-yellow-500 text-black rounded shadow-md uppercase tracking-wide flex items-center gap-0.5">
@@ -237,7 +239,7 @@ const CollapsibleTabsSection = ({
                           ) : isMembershipEpisode ? (
                             <span className="px-2 py-0.5 text-[10px] font-bold bg-red-600 text-white rounded shadow-md uppercase tracking-wide flex items-center gap-0.5">
                               <Crown className="h-2.5 w-2.5" />
-                              VIP+
+                              {t('vip')}+
                             </span>
                           ) : null}
                         </div>
@@ -250,9 +252,9 @@ const CollapsibleTabsSection = ({
                             />
                           </div>
                         )}
-                        {/* Large Episode Number - Word Art Style, 2x bigger on Desktop */}
+                        {/* Large Episode Number - Word Art Style, 50% smaller on mobile */}
                         <div className="absolute bottom-1 left-2">
-                          <span className="text-6xl font-black text-white leading-none" style={{
+                          <span className="text-3xl sm:text-5xl md:text-6xl font-black text-white leading-none" style={{
                             textShadow: '3px 3px 0px rgba(0,0,0,0.9), 6px 6px 10px rgba(0,0,0,0.5)',
                             WebkitTextStroke: '1px rgba(255,255,255,0.3)',
                             letterSpacing: '-0.05em'
@@ -320,9 +322,9 @@ const CollapsibleTabsSection = ({
       <TabsContent value="detail" className="mt-3">
         <div className="space-y-3">
           <div>
-            <h4 className="font-semibold text-sm mb-1">Description</h4>
+            <h4 className="font-semibold text-sm mb-1">{t('description')}</h4>
             <p className="text-muted-foreground text-sm">
-              {content?.overview || 'No description available.'}
+              {content?.overview || t('noDescriptionAvailable')}
             </p>
           </div>
         </div>
@@ -343,7 +345,7 @@ const CollapsibleTabsSection = ({
             onClick={() => navigate('/')}
           >
             <Home className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Go to Home</span>
+            <span className="text-sm font-medium">{t('goToHome')}</span>
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </motion.div>
           <motion.div
@@ -353,7 +355,7 @@ const CollapsibleTabsSection = ({
             onClick={() => navigate('/series')}
           >
             <Tv className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Go to Series</span>
+            <span className="text-sm font-medium">{t('goToSeries')}</span>
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </motion.div>
           <motion.div
@@ -363,7 +365,7 @@ const CollapsibleTabsSection = ({
             onClick={() => navigate('/movies')}
           >
             <Film className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Go to Movies</span>
+            <span className="text-sm font-medium">{t('goToMovies')}</span>
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </motion.div>
           <motion.div
@@ -373,7 +375,7 @@ const CollapsibleTabsSection = ({
             onClick={() => navigate('/dashboard')}
           >
             <LayoutDashboard className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium">Go to Dashboard</span>
+            <span className="text-sm font-medium">{t('goToDashboard')}</span>
             <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
           </motion.div>
         </motion.div>
