@@ -594,8 +594,43 @@ body.native-app-immersive {
 body.native-video-fullscreen {
   padding: 0 !important;
   margin: 0 !important;
+  overflow: hidden !important;
 }
 
 body.native-video-fullscreen .watch-page-portrait-safe {
   padding-top: 0 !important;
+}
+
+/* Hide notification dropdowns and other UI elements when video is fullscreen */
+body.native-video-fullscreen [data-notifications-dropdown],
+body.native-video-fullscreen .notifications-dropdown,
+body.native-video-fullscreen header,
+body.native-video-fullscreen nav,
+body.native-video-fullscreen .header-notifications {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Ensure video player has highest z-index in fullscreen */
+.video-player-fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 999999 !important;
+  background: black !important;
+}
+
+/* Video pinch-to-zoom support */
+.video-zoomable {
+  touch-action: none;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Smooth zoom transitions */
+.video-zoom-transition {
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }

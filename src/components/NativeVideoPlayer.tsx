@@ -30,6 +30,8 @@ import { useNativePlayerSettings } from '@/hooks/useNativePlayerSettings';
 import { useSupportUsSettings } from '@/hooks/useSupportUsSettings';
 import { useSubscription } from '@/hooks/useSubscription';
 import { NativeScreenProtection } from '@/utils/nativeScreenProtection';
+import { usePinchToZoom } from '@/hooks/usePinchToZoom';
+import { VideoSettingsMenu } from '@/components/VideoSettingsMenu';
 
 interface Episode {
   id: string;
@@ -154,6 +156,15 @@ const NativeVideoPlayer = ({
   const [supportUsShownAt50, setSupportUsShownAt50] = useState(false);
   const [supportUsShownAt85, setSupportUsShownAt85] = useState(false);
   
+  // Video settings state
+  const [stableVolume, setStableVolume] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [sleepTimer, setSleepTimer] = useState(0);
+  const [currentTextTrack, setCurrentTextTrack] = useState('off');
+  const [currentQuality, setCurrentQuality] = useState('auto');
+  const [autoQualityEnabled, setAutoQualityEnabled] = useState(true);
+  const [availableQualities, setAvailableQualities] = useState<string[]>([]);
+  
   const { user } = useAuth();
   const { settings: playerSettings } = useNativePlayerSettings();
   const { settings: supportUsSettings } = useSupportUsSettings();
@@ -168,6 +179,14 @@ const NativeVideoPlayer = ({
   });
 
   const isNativePlatform = Capacitor.isNativePlatform();
+
+  // Pinch to zoom for fullscreen
+  const { scale, isZoomed, showIndicator, zoomPercentage, resetZoom } = usePinchToZoom({
+    containerRef,
+    videoRef,
+    isFullscreen,
+    enabled: true
+  });
 
   // Enable screen protection on mount if enabled in settings
   useEffect(() => {
@@ -405,12 +424,19 @@ const NativeVideoPlayer = ({
     }
   }, [isFullscreen, isNativePlatform, onFullscreenChange]);
 
-  // Listen for fullscreen changes
+  // Listen for fullscreen changes and update body class
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFs = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
       setIsFullscreen(isFs);
       onFullscreenChange?.(isFs);
+      
+      // Add/remove body class to hide notifications and other UI
+      if (isFs) {
+        document.body.classList.add('native-video-fullscreen');
+      } else {
+        document.body.classList.remove('native-video-fullscreen');
+      }
       
       if (!isFs && isNativePlatform) {
         ScreenOrientation.lock({ orientation: 'portrait' }).catch(console.error);
@@ -423,6 +449,8 @@ const NativeVideoPlayer = ({
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      // Clean up body class on unmount
+      document.body.classList.remove('native-video-fullscreen');
     };
   }, [isNativePlatform, onFullscreenChange]);
 
@@ -451,10 +479,17 @@ const NativeVideoPlayer = ({
     }, playerSettings.autoHideControlsMs || 3000);
   };
 
-  const handleServerChange = (source: VideoSource) => {
+  const handleServerChange = useCallback((source: VideoSource) => {
+    if (currentServer?.id === source.id) return;
     setCurrentServer(source);
     setIsPlaying(false);
-  };
+    setCurrentTime(0);
+    setDuration(0);
+    // If we have a video element, reset it
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+    }
+  }, [currentServer]);
 
   const handleEpisodeSelect = (episodeId: string) => {
     onEpisodeSelect?.(episodeId);
@@ -463,6 +498,27 @@ const NativeVideoPlayer = ({
     setSupportUsShownAt50(false);
     setSupportUsShownAt85(false);
   };
+
+  // Video settings handlers
+  const handleQualityChange = useCallback((quality: string) => {
+    setCurrentQuality(quality);
+    setAutoQualityEnabled(false);
+  }, []);
+
+  const handleAutoQualityToggle = useCallback(() => {
+    setAutoQualityEnabled(!autoQualityEnabled);
+  }, [autoQualityEnabled]);
+
+  const handlePlaybackSpeedChange = useCallback((speed: number) => {
+    setPlaybackSpeed(speed);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = speed;
+    }
+  }, []);
+
+  const handleTextTrackChange = useCallback((language: string) => {
+    setCurrentTextTrack(language);
+  }, []);
 
   const videoPoster = contentBackdrop || '';
 
@@ -571,7 +627,27 @@ const NativeVideoPlayer = ({
         className={`relative bg-black group w-full aspect-video ${isFullscreen ? 'fixed inset-0 z-[9999] !aspect-auto' : ''}`}
         onMouseMove={handleMouseMove}
         onTouchStart={handleMouseMove}
+        style={{
+          // Hide system UI elements when in fullscreen
+          ...(isFullscreen && {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999
+          })
+        }}
       >
+        {/* Zoom Indicator */}
+        {isFullscreen && showIndicator && isZoomed && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[100] pointer-events-none">
+            <div className="bg-black/70 text-white px-4 py-2 rounded-lg backdrop-blur-sm">
+              <span className="text-lg font-medium">{zoomPercentage}%</span>
+            </div>
+          </div>
+        )}
+
         {/* Loading Overlay */}
         {isLoading && !isLocked && (
           <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
@@ -700,9 +776,9 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Top Right Controls: Screen Lock + Server Selector */}
-        {!isScreenLocked && !accessLoading && (
-          <div className={`absolute top-2 right-2 z-[60] flex items-center gap-2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Top Right Controls: Lock + Episodes + Server */}
+        {!isScreenLocked && !accessLoading && !isLocked && showControls && (
+          <div className="absolute top-2 right-2 z-[60] flex items-center gap-2 transition-opacity duration-300">
             {/* Screen Lock Button */}
             {playerSettings.showScreenLock && (
               <Button 
@@ -715,6 +791,18 @@ const NativeVideoPlayer = ({
               </Button>
             )}
             
+            {/* Episodes List Button - Moved to top right */}
+            {playerSettings.showEpisodesPanel && episodes.length > 0 && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setShowEpisodesPanel(true)} 
+                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
+              >
+                <ListVideo className="h-4 w-4" />
+              </Button>
+            )}
+            
             {/* Server Selector */}
             {playerSettings.showServerSelector && allAvailableSources.length > 1 && (
               <DropdownMenu>
@@ -723,21 +811,32 @@ const NativeVideoPlayer = ({
                     <ServerIcon className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-background text-foreground border border-border shadow-xl z-[10000]">
-                  <DropdownMenuLabel className="text-muted-foreground">Select Server</DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuContent 
+                  className="bg-black/95 text-white border border-white/10 shadow-xl z-[10000] min-w-[180px]"
+                  align="end"
+                  sideOffset={8}
+                >
+                  <DropdownMenuLabel className="text-white/70 text-xs">Select Server</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
                   {allAvailableSources.map((source) => {
                     const isActive = currentServer?.id === source.id;
                     return (
                       <DropdownMenuItem
                         key={source.id}
-                        onClick={() => handleServerChange(source)}
-                        className={`${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleServerChange(source);
+                        }}
+                        className={`cursor-pointer ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-white/10 text-white"}`}
                       >
                         <ServerIcon className="h-4 w-4 mr-2" />
-                        <span>{source.server_name || 'Server'}</span>
+                        <span className="flex-1">{source.server_name || 'Server'}</span>
+                        {source.quality && (
+                          <span className="ml-2 text-xs bg-white/20 px-1.5 py-0.5 rounded">{source.quality}</span>
+                        )}
                         {source.version && (
-                          <span className="ml-2 text-xs bg-white/20 px-1.5 py-0.5 rounded">{source.version}</span>
+                          <span className="ml-1 text-xs bg-primary/30 px-1.5 py-0.5 rounded">{source.version}</span>
                         )}
                       </DropdownMenuItem>
                     );
@@ -812,19 +911,38 @@ const NativeVideoPlayer = ({
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  {/* Episodes Button */}
+                <div className="flex items-center gap-1">
+                  {/* Episodes Button (text version for bottom bar) */}
                   {playerSettings.showEpisodesPanel && episodes.length > 0 && (
                     <Button 
                       variant="ghost" 
                       size="sm"
                       onClick={() => setShowEpisodesPanel(true)} 
-                      className="h-8 text-white gap-1.5 bg-black/40 hover:bg-black/60"
+                      className="h-8 text-white gap-1.5 px-2"
                     >
                       <ListVideo className="h-4 w-4" />
-                      <span className="text-xs">Episodes</span>
+                      <span className="text-xs hidden sm:inline">Episodes</span>
                     </Button>
                   )}
+                  
+                  {/* Settings/Gear Icon */}
+                  <VideoSettingsMenu
+                    stableVolume={stableVolume}
+                    onStableVolumeChange={setStableVolume}
+                    availableTextTracks={[]}
+                    currentTextTrack={currentTextTrack}
+                    onTextTrackChange={handleTextTrackChange}
+                    sleepTimer={sleepTimer}
+                    onSleepTimerChange={setSleepTimer}
+                    playbackSpeed={playbackSpeed}
+                    onPlaybackSpeedChange={handlePlaybackSpeedChange}
+                    availableQualities={availableQualities}
+                    currentQuality={currentQuality}
+                    autoQualityEnabled={autoQualityEnabled}
+                    onQualityChange={handleQualityChange}
+                    onAutoQualityToggle={handleAutoQualityToggle}
+                    sourceType={sourceType}
+                  />
                   
                   <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-8 w-8 text-white">
                     {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
