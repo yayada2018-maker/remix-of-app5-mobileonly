@@ -96,6 +96,7 @@ import AdminNotifications from "./pages/AdminNotifications";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminModerators from "./pages/AdminModerators";
 import AdminLogin from "./pages/AdminLogin";
+import AdminNativePlayerSettings from "./pages/AdminNativePlayerSettings";
 import AdminPaymentGatewayAutomatic from "./pages/AdminPaymentGatewayAutomatic";
 import AdminPaymentGateways from "./pages/AdminPaymentGateways";
 import AdminEpisodeEdit from "./pages/AdminEpisodeEdit";
@@ -195,6 +196,7 @@ const App = () => {
             <Route path="/admin/settings/policy" element={<AdminSettingsPolicy />} />
             <Route path="/admin/settings/sitemap" element={<AdminSettingsSitemap />} />
             <Route path="/admin/settings/system" element={<AdminSettingsSystem />} />
+            <Route path="/admin/settings/native-player" element={<AdminNativePlayerSettings />} />
             <Route path="/admin/shorts" element={<AdminPlaceholder title="Shorts" description="Manage short videos" />} />
             
             <Route path="/history" element={<Layout><History /></Layout>} />

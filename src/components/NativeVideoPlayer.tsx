@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
   Loader2, SkipBack, SkipForward, Crown,
-  Server as ServerIcon, CreditCard, ArrowLeft
+  Server as ServerIcon, CreditCard, ArrowLeft, Lock, ListVideo
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,12 +23,38 @@ import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { useVideoResume } from '@/hooks/useVideoResume';
 import { useAuth } from '@/hooks/useAuth';
 import AppLockOverlay from '@/components/AppLockOverlay';
+import { ScreenLockOverlay } from '@/components/video/ScreenLockOverlay';
+import { EpisodesPanel } from '@/components/video/EpisodesPanel';
+import { SupportUsOverlay } from '@/components/video/SupportUsOverlay';
+import { useNativePlayerSettings } from '@/hooks/useNativePlayerSettings';
+import { useSupportUsSettings } from '@/hooks/useSupportUsSettings';
+import { useSubscription } from '@/hooks/useSubscription';
+import { NativeScreenProtection } from '@/utils/nativeScreenProtection';
+
+interface Episode {
+  id: string;
+  title: string;
+  episode_number: number;
+  still_path?: string;
+  duration?: number;
+  version?: string;
+  season_id?: string;
+}
+
+interface Season {
+  id: string;
+  title: string;
+  season_number: number;
+}
 
 interface NativeVideoPlayerProps {
   videoSources: VideoSource[];
   onEpisodeSelect?: (episodeId: string) => void;
-  episodes?: any[];
+  onSeasonSelect?: (seasonId: string) => void;
+  episodes?: Episode[];
+  seasons?: Season[];
   currentEpisodeId?: string;
+  currentSeasonId?: string;
   contentBackdrop?: string;
   contentId?: string;
   accessType?: 'free' | 'rent' | 'vip';
@@ -83,8 +109,11 @@ const convertVkVideoUrl = (url: string): string => {
 const NativeVideoPlayer = ({ 
   videoSources, 
   onEpisodeSelect,
+  onSeasonSelect,
   episodes = [],
-  currentEpisodeId, 
+  seasons = [],
+  currentEpisodeId,
+  currentSeasonId,
   contentBackdrop,
   contentId,
   accessType = 'free',
@@ -117,7 +146,18 @@ const NativeVideoPlayer = ({
   const [accessLoading, setAccessLoading] = useState(true);
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   
+  // New state for enhanced features
+  const [isScreenLocked, setIsScreenLocked] = useState(false);
+  const [showEpisodesPanel, setShowEpisodesPanel] = useState(false);
+  const [showSupportUsOverlay, setShowSupportUsOverlay] = useState(false);
+  const [supportUsShownAtStart, setSupportUsShownAtStart] = useState(false);
+  const [supportUsShownAt50, setSupportUsShownAt50] = useState(false);
+  const [supportUsShownAt85, setSupportUsShownAt85] = useState(false);
+  
   const { user } = useAuth();
+  const { settings: playerSettings } = useNativePlayerSettings();
+  const { settings: supportUsSettings } = useSupportUsSettings();
+  const { hasActiveSubscription } = useSubscription();
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -128,6 +168,21 @@ const NativeVideoPlayer = ({
   });
 
   const isNativePlatform = Capacitor.isNativePlatform();
+
+  // Enable screen protection on mount if enabled in settings
+  useEffect(() => {
+    if (playerSettings.enableScreenProtection && isNativePlatform) {
+      NativeScreenProtection.enable();
+      return () => {
+        NativeScreenProtection.disable();
+      };
+    }
+  }, [playerSettings.enableScreenProtection, isNativePlatform]);
+
+  // Get unique versions from episodes
+  const availableVersions = useMemo(() => {
+    return [...new Set(episodes.map(ep => ep.version).filter(Boolean))] as string[];
+  }, [episodes]);
 
   // Filter sources for native platform
   const allAvailableSources = useMemo(() => {
@@ -213,6 +268,31 @@ const NativeVideoPlayer = ({
   const isLocked = !accessLoading && hasAccess === false && accessType !== 'free';
 
   const sourceType = currentServer ? normalizeType(currentServer.source_type, currentServer.url) : "iframe";
+
+  // Support Us overlay logic based on checkpoints
+  useEffect(() => {
+    if (!supportUsSettings.enabled || !playerSettings.showSupportUsOverlay || isSubscribed || !duration) return;
+    
+    const progress = (currentTime / duration) * 100;
+    
+    // Show at start
+    if (supportUsSettings.checkpointStart && !supportUsShownAtStart && currentTime > 5 && currentTime < 15) {
+      setSupportUsShownAtStart(true);
+      setShowSupportUsOverlay(true);
+    }
+    
+    // Show at 50%
+    if (supportUsSettings.checkpoint50 && !supportUsShownAt50 && progress >= 50 && progress < 55) {
+      setSupportUsShownAt50(true);
+      setShowSupportUsOverlay(true);
+    }
+    
+    // Show at 85%
+    if (supportUsSettings.checkpoint85 && !supportUsShownAt85 && progress >= 85 && progress < 90) {
+      setSupportUsShownAt85(true);
+      setShowSupportUsOverlay(true);
+    }
+  }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, isSubscribed, supportUsShownAtStart, supportUsShownAt50, supportUsShownAt85]);
 
   // Video event handlers (only for MP4 sources)
   useEffect(() => {
@@ -363,16 +443,25 @@ const NativeVideoPlayer = ({
   };
 
   const handleMouseMove = () => {
+    if (isScreenLocked) return;
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
       if (isPlaying) setShowControls(false);
-    }, 3000);
+    }, playerSettings.autoHideControlsMs || 3000);
   };
 
   const handleServerChange = (source: VideoSource) => {
     setCurrentServer(source);
     setIsPlaying(false);
+  };
+
+  const handleEpisodeSelect = (episodeId: string) => {
+    onEpisodeSelect?.(episodeId);
+    // Reset support us shown states for new episode
+    setSupportUsShownAtStart(false);
+    setSupportUsShownAt50(false);
+    setSupportUsShownAt85(false);
   };
 
   const videoPoster = contentBackdrop || '';
@@ -571,38 +660,96 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Server Selector */}
-        {allAvailableSources.length > 1 && !accessLoading && (
-          <div className={`absolute top-2 right-2 z-[60] transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/40 hover:bg-black/60">
-                  <ServerIcon className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-background text-foreground border border-border shadow-xl z-[10000]">
-                <DropdownMenuLabel className="text-muted-foreground">Select Server</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-border" />
-                {allAvailableSources.map((source) => {
-                  const isActive = currentServer?.id === source.id;
-                  return (
-                    <DropdownMenuItem
-                      key={source.id}
-                      onClick={() => handleServerChange(source)}
-                      className={`${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                    >
-                      <ServerIcon className="h-4 w-4 mr-2" />
-                      <span>{source.server_name || 'Server'}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+        {/* Screen Lock Overlay */}
+        {playerSettings.showScreenLock && (
+          <ScreenLockOverlay
+            isLocked={isScreenLocked}
+            onToggleLock={() => setIsScreenLocked(!isScreenLocked)}
+            showControls={showControls}
+          />
+        )}
+
+        {/* Episodes Panel */}
+        {playerSettings.showEpisodesPanel && episodes.length > 0 && (
+          <EpisodesPanel
+            isOpen={showEpisodesPanel}
+            onClose={() => setShowEpisodesPanel(false)}
+            episodes={episodes}
+            seasons={seasons}
+            currentEpisodeId={currentEpisodeId}
+            currentSeasonId={currentSeasonId}
+            onEpisodeSelect={handleEpisodeSelect}
+            onSeasonSelect={onSeasonSelect}
+            showVersionFilter={playerSettings.showVersionFilter}
+            availableVersions={availableVersions}
+          />
+        )}
+
+        {/* Support Us Overlay */}
+        {playerSettings.showSupportUsOverlay && (
+          <SupportUsOverlay
+            isVisible={showSupportUsOverlay}
+            onClose={() => setShowSupportUsOverlay(false)}
+            onSkip={() => setShowSupportUsOverlay(false)}
+            contentId={contentId || mediaId}
+            contentTitle={title}
+            countdownSeconds={supportUsSettings.countdownSeconds}
+            supportAmounts={supportUsSettings.amounts}
+            episodeId={currentEpisodeId}
+            colors={supportUsSettings.colors}
+          />
+        )}
+
+        {/* Top Right Controls: Screen Lock + Server Selector */}
+        {!isScreenLocked && !accessLoading && (
+          <div className={`absolute top-2 right-2 z-[60] flex items-center gap-2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+            {/* Screen Lock Button */}
+            {playerSettings.showScreenLock && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsScreenLocked(true)}
+                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
+              >
+                <Lock className="h-4 w-4" />
+              </Button>
+            )}
+            
+            {/* Server Selector */}
+            {playerSettings.showServerSelector && allAvailableSources.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/40 hover:bg-black/60">
+                    <ServerIcon className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-background text-foreground border border-border shadow-xl z-[10000]">
+                  <DropdownMenuLabel className="text-muted-foreground">Select Server</DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-border" />
+                  {allAvailableSources.map((source) => {
+                    const isActive = currentServer?.id === source.id;
+                    return (
+                      <DropdownMenuItem
+                        key={source.id}
+                        onClick={() => handleServerChange(source)}
+                        className={`${isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        <ServerIcon className="h-4 w-4 mr-2" />
+                        <span>{source.server_name || 'Server'}</span>
+                        {source.version && (
+                          <span className="ml-2 text-xs bg-white/20 px-1.5 py-0.5 rounded">{source.version}</span>
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         )}
 
         {/* MP4 Controls */}
-        {sourceType === 'mp4' && !isLocked && !accessLoading && !allSourcesWebOnly && (
+        {sourceType === 'mp4' && !isLocked && !accessLoading && !allSourcesWebOnly && !isScreenLocked && (
           <>
             {/* Exit Fullscreen Button */}
             {isFullscreen && showControls && (
@@ -665,9 +812,24 @@ const NativeVideoPlayer = ({
                   </span>
                 </div>
                 
-                <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-8 w-8 text-white">
-                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {/* Episodes Button */}
+                  {playerSettings.showEpisodesPanel && episodes.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowEpisodesPanel(true)} 
+                      className="h-8 text-white gap-1.5 bg-black/40 hover:bg-black/60"
+                    >
+                      <ListVideo className="h-4 w-4" />
+                      <span className="text-xs">Episodes</span>
+                    </Button>
+                  )}
+                  
+                  <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-8 w-8 text-white">
+                    {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
           </>

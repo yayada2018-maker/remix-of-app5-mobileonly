@@ -162,6 +162,13 @@ const settingsCards: SettingCard[] = [
     link: '/admin/settings/robots'
   },
   {
+    id: 'native-player',
+    title: 'Native Player Settings',
+    description: 'Configure video player features for native mobile apps (iOS/Android).',
+    icon: <Smartphone className="h-6 w-6" />,
+    link: '/admin/settings/native-player'
+  },
+  {
     id: 'in-app-payment',
     title: 'In App Payment',
     description: 'Configure google pay to accept payments directly within your app.',
