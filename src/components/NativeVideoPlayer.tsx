@@ -155,6 +155,9 @@ const NativeVideoPlayer = ({
   const [supportUsShownAtStart, setSupportUsShownAtStart] = useState(false);
   const [supportUsShownAt50, setSupportUsShownAt50] = useState(false);
   const [supportUsShownAt85, setSupportUsShownAt85] = useState(false);
+  // State to control if video has been played for the first time
+  const [hasAttemptedFirstPlay, setHasAttemptedFirstPlay] = useState(false);
+  const [pendingPlayAfterOverlay, setPendingPlayAfterOverlay] = useState(false);
   
   // Video settings state
   const [stableVolume, setStableVolume] = useState(false);
@@ -311,30 +314,32 @@ const NativeVideoPlayer = ({
 
   const sourceType = currentServer ? normalizeType(currentServer.source_type, currentServer.url) : "iframe";
 
-  // Support Us overlay logic based on checkpoints
+  // Support Us overlay logic based on checkpoints (show during playback)
   useEffect(() => {
     if (!supportUsSettings.enabled || !playerSettings.showSupportUsOverlay || hasActiveSubscription || !duration) return;
     
     const progress = (currentTime / duration) * 100;
     
-    // Show at start
-    if (supportUsSettings.checkpointStart && !supportUsShownAtStart && currentTime > 5 && currentTime < 15) {
-      setSupportUsShownAtStart(true);
-      setShowSupportUsOverlay(true);
-    }
-    
     // Show at 50%
     if (supportUsSettings.checkpoint50 && !supportUsShownAt50 && progress >= 50 && progress < 55) {
       setSupportUsShownAt50(true);
       setShowSupportUsOverlay(true);
+      // Pause video when showing overlay
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
     }
     
     // Show at 85%
     if (supportUsSettings.checkpoint85 && !supportUsShownAt85 && progress >= 85 && progress < 90) {
       setSupportUsShownAt85(true);
       setShowSupportUsOverlay(true);
+      // Pause video when showing overlay
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
     }
-  }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription, supportUsShownAtStart, supportUsShownAt50, supportUsShownAt85]);
+  }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription, supportUsShownAt50, supportUsShownAt85]);
 
   // Video event handlers (only for MP4 sources)
   useEffect(() => {
@@ -391,12 +396,24 @@ const NativeVideoPlayer = ({
 
   const togglePlayPause = useCallback(() => {
     if (!videoRef.current || sourceType !== 'mp4') return;
+    
+    // Check if support us overlay should show on first play attempt
+    if (!hasAttemptedFirstPlay && !isPlaying && supportUsSettings.enabled && 
+        supportUsSettings.checkpointStart && playerSettings.showSupportUsOverlay && !hasActiveSubscription) {
+      setHasAttemptedFirstPlay(true);
+      setSupportUsShownAtStart(true);
+      setShowSupportUsOverlay(true);
+      setPendingPlayAfterOverlay(true);
+      // Do NOT start playing - wait for overlay countdown
+      return;
+    }
+    
     if (isPlaying) {
       videoRef.current.pause();
     } else {
       videoRef.current.play().catch(console.error);
     }
-  }, [isPlaying, sourceType]);
+  }, [isPlaying, sourceType, hasAttemptedFirstPlay, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription]);
 
   const handleSeek = useCallback((value: number[]) => {
     if (!videoRef.current || sourceType !== 'mp4') return;
@@ -416,7 +433,7 @@ const NativeVideoPlayer = ({
 
     try {
       if (!isFullscreen) {
-        // Enter fullscreen
+        // Enter fullscreen - always lock to landscape (for both mp4 and iframe)
         if (isNativePlatform) {
           await ScreenOrientation.lock({ orientation: 'landscape' });
         }
@@ -520,7 +537,18 @@ const NativeVideoPlayer = ({
     setSupportUsShownAtStart(false);
     setSupportUsShownAt50(false);
     setSupportUsShownAt85(false);
+    setHasAttemptedFirstPlay(false);
+    setPendingPlayAfterOverlay(false);
   };
+
+  // Handle support us overlay skip/close - play video if pending
+  const handleSupportUsClose = useCallback(() => {
+    setShowSupportUsOverlay(false);
+    if (pendingPlayAfterOverlay && videoRef.current) {
+      setPendingPlayAfterOverlay(false);
+      videoRef.current.play().catch(console.error);
+    }
+  }, [pendingPlayAfterOverlay]);
 
   // Video settings handlers
   const handleQualityChange = useCallback((quality: string) => {
@@ -797,6 +825,7 @@ const NativeVideoPlayer = ({
             onSeasonSelect={onSeasonSelect}
             showVersionFilter={playerSettings.showVersionFilter}
             availableVersions={availableVersions}
+            contentBackdrop={contentBackdrop}
           />
         )}
 
@@ -804,8 +833,8 @@ const NativeVideoPlayer = ({
         {playerSettings.showSupportUsOverlay && (
           <SupportUsOverlay
             isVisible={showSupportUsOverlay}
-            onClose={() => setShowSupportUsOverlay(false)}
-            onSkip={() => setShowSupportUsOverlay(false)}
+            onClose={handleSupportUsClose}
+            onSkip={handleSupportUsClose}
             contentId={contentId || mediaId}
             contentTitle={title}
             countdownSeconds={supportUsSettings.countdownSeconds}
@@ -815,11 +844,11 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Top Right Controls: Server Selector Only */}
+        {/* Top Right Controls: Server Selector Only - Show only if 2+ servers */}
         {!isScreenLocked && !accessLoading && !isLocked && showControls && (
           <div className="absolute top-2 right-2 z-[60] flex items-center gap-2 transition-opacity duration-300">
-            {/* Server Selector */}
-            {playerSettings.showServerSelector && allAvailableSources.length > 0 && (
+            {/* Server Selector - Only show if there are 2 or more servers */}
+            {playerSettings.showServerSelector && allAvailableSources.length >= 2 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/40 hover:bg-black/60">
@@ -859,6 +888,18 @@ const NativeVideoPlayer = ({
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+            
+            {/* Fullscreen button for iframe sources */}
+            {sourceType === 'iframe' && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleFullscreen}
+                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
+              >
+                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              </Button>
             )}
           </div>
         )}
