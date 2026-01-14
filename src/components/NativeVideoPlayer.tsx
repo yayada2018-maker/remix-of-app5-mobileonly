@@ -521,25 +521,43 @@ const NativeVideoPlayer = ({
 
   const handleServerChange = useCallback((source: VideoSource) => {
     if (currentServer?.id === source.id) return;
+    
+    // Set loading state before changing source
+    setIsLoading(true);
     setCurrentServer(source);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
+    
     // If we have a video element, reset it
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
   }, [currentServer]);
 
-  const handleEpisodeSelect = (episodeId: string) => {
+  const handleEpisodeSelect = useCallback((episodeId: string) => {
+    // Set loading state immediately for smooth transition
+    setIsLoading(true);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    
+    // Reset video element if available
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    
     onEpisodeSelect?.(episodeId);
+    
     // Reset support us shown states for new episode
     setSupportUsShownAtStart(false);
     setSupportUsShownAt50(false);
     setSupportUsShownAt85(false);
     setHasAttemptedFirstPlay(false);
     setPendingPlayAfterOverlay(false);
-  };
+  }, [onEpisodeSelect]);
 
   // Handle support us overlay skip/close - play video if pending
   const handleSupportUsClose = useCallback(() => {
@@ -803,8 +821,8 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Screen Lock Overlay */}
-        {playerSettings.showScreenLock && (
+        {/* Screen Lock Overlay - Only for MP4/Shaka sources, NOT for embed/iframe */}
+        {playerSettings.showScreenLock && sourceType === 'mp4' && (
           <ScreenLockOverlay
             isLocked={isScreenLocked}
             onToggleLock={() => setIsScreenLocked(!isScreenLocked)}
@@ -889,22 +907,24 @@ const NativeVideoPlayer = ({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            
-            {/* Fullscreen button for iframe sources */}
-            {sourceType === 'iframe' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={toggleFullscreen}
-                className="h-8 w-8 text-white bg-black/40 hover:bg-black/60"
-              >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </Button>
-            )}
+          </div>
+        )}
+        
+        {/* Embed/Iframe Fullscreen Button - Bottom Right for smooth toggle */}
+        {sourceType === 'iframe' && !accessLoading && !isLocked && showControls && (
+          <div className="absolute bottom-4 right-4 z-[60] transition-opacity duration-300">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleFullscreen}
+              className="h-10 w-10 text-white bg-black/60 hover:bg-black/80 backdrop-blur-sm rounded-full shadow-lg"
+            >
+              {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            </Button>
           </div>
         )}
 
-        {/* MP4 Controls */}
+        {/* MP4 Controls - Only for Shaka/mp4 player */}
         {sourceType === 'mp4' && !isLocked && !accessLoading && !allSourcesWebOnly && !isScreenLocked && (
           <>
             {/* Exit Fullscreen Button */}
@@ -969,8 +989,8 @@ const NativeVideoPlayer = ({
                 </div>
                 
                 <div className="flex items-center gap-1">
-                  {/* Screen Lock Button - Before Episodes */}
-                  {playerSettings.showScreenLock && (
+                  {/* Screen Lock Button - Before Episodes (only for MP4/Shaka) */}
+                  {playerSettings.showScreenLock && sourceType === 'mp4' && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
