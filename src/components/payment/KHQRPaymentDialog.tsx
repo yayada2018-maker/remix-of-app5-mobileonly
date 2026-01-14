@@ -403,22 +403,28 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-background via-background to-primary/5">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <img src={logo} alt="KHMERZOON" className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
-            <div>
-              <DialogTitle className="text-xl sm:text-2xl font-bold">KHMERZOON</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">Top Up Wallet using KHQR Payment</DialogDescription>
+      <DialogContent className="max-w-[95vw] sm:max-w-md landscape:max-w-[55vw] landscape:md:max-w-[45vw] landscape:max-h-[90vh] max-h-[85vh] overflow-y-auto p-4 sm:p-6 landscape:p-3 landscape:py-4 bg-gradient-to-br from-background via-background to-primary/5">
+        {/* Header with Logo - Matching reference design */}
+        <DialogHeader className="landscape:pb-2 pb-3">
+          <div className="flex items-center gap-3 landscape:gap-2">
+            <img 
+              src={logo} 
+              alt="KHMERZOON" 
+              className="w-10 h-10 sm:w-12 sm:h-12 landscape:w-8 landscape:h-8 object-contain rounded-lg" 
+            />
+            <div className="flex-1">
+              <DialogTitle className="text-xl sm:text-2xl landscape:text-base font-bold">KHMERZOON</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm landscape:text-[11px]">Top Up Wallet using KHQR Payment</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
+        <div className="space-y-4 landscape:space-y-3 mt-2 landscape:mt-1">
           {paymentStatus === 'idle' && (
             <>
-              <div className="space-y-2 sm:space-y-3">
-                <label className="text-sm font-medium">Enter Amount (USD)</label>
+              {/* Amount Input */}
+              <div className="space-y-2 landscape:space-y-1.5">
+                <label className="text-sm landscape:text-xs font-medium">Enter Amount (USD)</label>
                 <Input
                   type="number"
                   placeholder="Enter amount"
@@ -426,20 +432,21 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
                   onChange={(e) => setAmount(e.target.value)}
                   min="1"
                   step="0.01"
-                  className="text-base sm:text-lg h-10 sm:h-12"
+                  className="text-base sm:text-lg landscape:text-sm h-11 sm:h-12 landscape:h-9 font-medium"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Quick Select</label>
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+              {/* Quick Amount Selection */}
+              <div className="space-y-2 landscape:space-y-1.5">
+                <label className="text-sm landscape:text-xs font-medium text-muted-foreground">Quick Select</label>
+                <div className="grid grid-cols-5 gap-2 landscape:gap-1.5">
                   {quickAmounts.map((quickAmount) => (
                     <Button
                       key={quickAmount}
                       variant={amount === quickAmount.toString() ? 'default' : 'outline'}
                       size="sm"
                       onClick={() => setAmount(quickAmount.toString())}
-                      className="font-semibold text-xs sm:text-sm h-8 sm:h-9"
+                      className="font-semibold text-sm landscape:text-xs h-10 sm:h-11 landscape:h-8"
                     >
                       ${quickAmount}
                     </Button>
@@ -447,20 +454,21 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
                 </div>
               </div>
 
+              {/* Generate Button */}
               <Button
                 onClick={generateQRCode}
                 disabled={loading || !amount || parseFloat(amount) <= 0}
-                className="w-full h-10 sm:h-12 text-base sm:text-lg font-semibold"
+                className="w-full h-12 sm:h-14 landscape:h-10 text-base sm:text-lg landscape:text-sm font-semibold"
                 size="lg"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 landscape:w-4 landscape:h-4 mr-2 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                    <QrCode className="w-5 h-5 landscape:w-4 landscape:h-4 mr-2" />
                     Generate KHQR Payment
                   </>
                 )}
@@ -469,71 +477,82 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
           )}
 
           {paymentStatus === 'pending' && qrCode && (
-            <div className="space-y-3 sm:space-y-4 animate-fade-in">
-              <div className="flex flex-col items-center justify-center p-4 sm:p-6 bg-white rounded-lg shadow-lg animate-scale-in">
-                <QRCode id="qr-code-svg" value={qrCode} size={Math.min(200, window.innerWidth * 0.5)} />
+            <div className="space-y-4 landscape:space-y-2 animate-fade-in">
+              {/* QR Code Display with white background */}
+              <div className="flex flex-col items-center justify-center p-5 sm:p-6 landscape:p-3 bg-white rounded-xl shadow-lg animate-scale-in">
+                <QRCode 
+                  id="qr-code-svg" 
+                  value={qrCode} 
+                  size={200}
+                  className="w-[160px] h-[160px] sm:w-[200px] sm:h-[200px] landscape:!w-[100px] landscape:!h-[100px]"
+                />
               </div>
 
-              <div className="text-center space-y-2">
-                <p className="text-lg font-semibold">Scan to Pay ${parseFloat(amount).toFixed(2)}</p>
+              {/* Payment Info */}
+              <div className="text-center space-y-1">
+                <p className="text-lg sm:text-xl landscape:text-base font-bold">Scan to Pay ${parseFloat(amount).toFixed(2)}</p>
                 {expiresAt && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs landscape:text-[11px] text-muted-foreground">
                     Expires at {new Date(expiresAt).toLocaleTimeString()}
                   </p>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Action Buttons - Open With & Download */}
+              <div className="grid grid-cols-2 gap-3 landscape:gap-2">
                 <Button
                   variant="default"
                   onClick={shareToBank}
-                  className="w-full"
+                  className="w-full h-11 landscape:h-9 text-sm landscape:text-xs font-medium"
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
+                  <Share2 className="w-4 h-4 landscape:w-3.5 landscape:h-3.5 mr-2" />
                   Open With
                 </Button>
                 <Button
                   variant="secondary"
                   onClick={downloadQRCode}
-                  className="w-full"
+                  className="w-full h-11 landscape:h-9 text-sm landscape:text-xs font-medium"
                 >
-                  <Download className="w-4 h-4 mr-2" />
+                  <Download className="w-4 h-4 landscape:w-3.5 landscape:h-3.5 mr-2" />
                   Download
                 </Button>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              {/* Waiting Status */}
+              <div className="flex items-center justify-center gap-2 text-sm landscape:text-xs text-muted-foreground py-1">
                 <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
                 Waiting for payment confirmation
               </div>
 
+              {/* Check Payment Button */}
               <Button
                 variant="default"
                 onClick={manualCheckPayment}
                 disabled={checking}
-                className="w-full"
+                className="w-full h-11 landscape:h-9 text-sm landscape:text-xs font-medium"
               >
                 {checking ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 landscape:w-3.5 landscape:h-3.5 mr-2 animate-spin" />
                     Checking...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    <CheckCircle2 className="w-4 h-4 landscape:w-3.5 landscape:h-3.5 mr-2" />
                     I Have Paid - Check Status
                   </>
                 )}
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">
+              <p className="text-xs landscape:text-[10px] text-center text-muted-foreground">
                 Already paid? Click the button above to verify your payment
               </p>
 
+              {/* Cancel Button */}
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="w-full"
+                className="w-full h-10 landscape:h-8 text-sm landscape:text-xs"
               >
                 Cancel
               </Button>
@@ -541,13 +560,13 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
           )}
 
           {paymentStatus === 'completed' && (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <div className="p-4 rounded-full bg-green-500/10">
-                <CheckCircle2 className="w-16 h-16 text-green-500" />
+            <div className="flex flex-col items-center justify-center py-8 landscape:py-4 space-y-4 landscape:space-y-2">
+              <div className="p-4 landscape:p-3 rounded-full bg-green-500/10">
+                <CheckCircle2 className="w-16 h-16 landscape:w-12 landscape:h-12 text-green-500" />
               </div>
               <div className="text-center space-y-1">
-                <h3 className="text-2xl font-bold text-green-500">Payment Successful!</h3>
-                <p className="text-muted-foreground">
+                <h3 className="text-2xl landscape:text-lg font-bold text-green-500">Payment Successful!</h3>
+                <p className="text-muted-foreground text-sm landscape:text-xs">
                   ${parseFloat(amount).toFixed(2)} has been added to your wallet
                 </p>
               </div>
