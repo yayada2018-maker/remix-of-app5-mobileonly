@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Crown, Wallet, Globe, Bell, Sun, Moon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,11 +25,21 @@ const Header = ({ onMenuClick, hideJoinMember = false }: HeaderProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [membershipDialogOpen, setMembershipDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
   const { effectiveTheme } = useTheme();
   const siteSettings = useSiteSettingsOptional();
   const { user } = useAuth();
   const { balance, refetch: refetchBalance } = useWallet();
+
+  // Track scroll position for header background effect
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Get logo from settings or use defaults
   const lightLogo = siteSettings?.logos?.light_logo || logoLightDefault;
@@ -51,7 +61,13 @@ const Header = ({ onMenuClick, hideJoinMember = false }: HeaderProps) => {
   };
 
   return (
-    <header className="fixed top-0 z-50 w-full bg-primary shadow-md">
+    <header 
+      className={`fixed top-0 z-50 w-full transition-all duration-300 ${
+        isScrolled 
+          ? 'bg-black/40 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.05)]' 
+          : 'bg-transparent'
+      }`}
+    >
       <div className="flex h-14 items-center px-4 lg:px-6 gap-3">
         {/* Left: Menu and Logo */}
         <div className="flex items-center gap-2 shrink-0">
@@ -92,13 +108,13 @@ const Header = ({ onMenuClick, hideJoinMember = false }: HeaderProps) => {
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-9 pl-4 pr-10 bg-white text-gray-800 placeholder:text-gray-400 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-full"
+                className="w-full h-9 pl-4 pr-10 bg-white/20 backdrop-blur-sm text-white placeholder:text-white/70 border-white/30 focus-visible:ring-white/50 focus-visible:ring-offset-0 rounded-full"
               />
               <Button
                 type="submit"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-full hover:bg-transparent text-primary"
+                className="absolute right-0 top-0 h-full hover:bg-transparent text-white"
               >
                 <Search className="h-5 w-5" />
               </Button>
