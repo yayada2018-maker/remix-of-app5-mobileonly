@@ -60,22 +60,27 @@ export const SupportUsOverlay = ({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showAuthDialogPending, setShowAuthDialogPending] = useState(false);
 
-  // Auto-dismiss countdown - pause when auth dialog is shown or processing payment
+  // Reset countdown when overlay becomes visible
   useEffect(() => {
-    if (!isVisible) {
+    if (isVisible) {
       setCountdown(countdownSeconds);
       setStep('initial');
       setIsProcessingPayment(false);
       setShowAuthDialogPending(false);
       setCustomAmount('');
-      return;
     }
+  }, [isVisible, countdownSeconds]);
+
+  // Auto-dismiss countdown - pause when auth dialog is shown or processing payment
+  useEffect(() => {
+    if (!isVisible) return;
 
     // Don't countdown if auth dialog is open or processing payment
-    if (showAuthDialog || isProcessingPayment) {
+    if (showAuthDialog || isProcessingPayment || step === 'wallet') {
       return;
     }
 
+    // Start countdown timer
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -91,7 +96,7 @@ export const SupportUsOverlay = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isVisible, onSkip, isProcessingPayment, step, showAuthDialog, countdownSeconds]);
+  }, [isVisible, onSkip, isProcessingPayment, step, showAuthDialog]);
 
   const handleSupportClick = useCallback(() => {
     if (!user) {
