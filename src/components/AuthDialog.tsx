@@ -108,66 +108,66 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex justify-center mb-2 sm:mb-4">
+      <DialogContent className="max-w-[95vw] sm:max-w-md landscape:max-w-[60vw] landscape:max-h-[85vh] max-h-[90vh] overflow-y-auto p-4 landscape:p-3">
+        <DialogHeader className="landscape:pb-1">
+          <div className="flex justify-center mb-1 sm:mb-2 landscape:mb-1">
             <img 
               src={logo} 
               alt="KHMERZOON" 
-              className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
+              className="w-10 h-10 sm:w-16 sm:h-16 landscape:w-8 landscape:h-8 object-contain"
             />
           </div>
-          <DialogTitle className="text-center text-xl sm:text-2xl">
+          <DialogTitle className="text-center text-lg sm:text-2xl landscape:text-base">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </DialogTitle>
-          <DialogDescription className="text-center text-xs sm:text-sm">
+          <DialogDescription className="text-center text-xs landscape:text-[10px]">
             {isSignUp ? 'Join KHMERZOON today' : 'Welcome back to KHMERZOON'}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 mt-2 sm:mt-4">
-          <div className="space-y-2 sm:space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-4 landscape:space-y-1.5 mt-1 sm:mt-4 landscape:mt-1">
+          <div className="space-y-1.5 sm:space-y-3 landscape:space-y-1">
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-10 sm:pl-11 h-10 sm:h-12"
+                className="pl-10 h-9 sm:h-12 landscape:h-8 text-sm landscape:text-xs"
               />
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="pl-10 sm:pl-11 h-10 sm:h-12"
+                className="pl-10 h-9 sm:h-12 landscape:h-8 text-sm landscape:text-xs"
               />
             </div>
           </div>
 
           {isSignUp && (
-            <div className="flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 bg-muted/30 rounded-lg">
+            <div className="flex items-start space-x-2 p-2 landscape:p-1.5 bg-muted/30 rounded-lg">
               <button
                 type="button"
                 onClick={() => setAgreedToTerms(!agreedToTerms)}
                 className="mt-0.5 flex-shrink-0"
               >
-                <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
                   agreedToTerms 
                     ? 'bg-primary border-primary' 
                     : 'border-muted-foreground/50'
                 }`}>
-                  {agreedToTerms && <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />}
+                  {agreedToTerms && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
                 </div>
               </button>
               <label 
-                className="text-xs sm:text-sm text-muted-foreground cursor-pointer select-none"
+                className="text-xs landscape:text-[10px] text-muted-foreground cursor-pointer select-none"
                 onClick={() => setAgreedToTerms(!agreedToTerms)}
               >
                 I agree to the terms and conditions
@@ -177,29 +177,29 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
           <Button 
             type="submit" 
-            className="w-full h-10 sm:h-12" 
+            className="w-full h-9 sm:h-12 landscape:h-8 text-sm landscape:text-xs" 
             disabled={loading || (isSignUp && !agreedToTerms)}
           >
             {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
           </Button>
 
-          <div className="relative my-2 sm:my-4">
+          <div className="relative my-1.5 sm:my-4 landscape:my-1">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+              <span className="bg-background px-2 text-muted-foreground landscape:text-[10px]">Or continue with</span>
             </div>
           </div>
 
           <Button 
             type="button" 
             variant="outline" 
-            className="w-full h-10 sm:h-12" 
+            className="w-full h-9 sm:h-12 landscape:h-8 text-sm landscape:text-xs" 
             onClick={handleGoogleSignIn}
             disabled={loading}
           >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
+            <svg className="mr-2 h-4 w-4 landscape:h-3 landscape:w-3" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -224,7 +224,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-primary hover:underline"
+              className="text-xs landscape:text-[10px] text-primary hover:underline"
             >
               {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
             </button>
