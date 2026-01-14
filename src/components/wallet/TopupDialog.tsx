@@ -186,31 +186,31 @@ export const TopupDialog = ({ open, onOpenChange, onSuccess, requiredAmount }: T
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] sm:max-w-sm landscape:max-w-[55vw] landscape:max-h-[85vh] max-h-[90vh] overflow-y-auto p-4 landscape:p-3">
-        <DialogHeader className="landscape:pb-1">
-          <DialogTitle className="flex items-center gap-2 text-base landscape:text-sm">
-            <Wallet className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 text-primary" />
+      <DialogContent className="max-w-[95vw] sm:max-w-md landscape:max-w-[50vw] landscape:md:max-w-[40vw] landscape:max-h-[90vh] max-h-[85vh] overflow-y-auto p-4 sm:p-6 landscape:p-3 landscape:py-4">
+        <DialogHeader className="landscape:pb-2 pb-3">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl landscape:text-base font-bold">
+            <Wallet className="h-5 w-5 landscape:h-4 landscape:w-4 text-primary" />
             Top Up Wallet
           </DialogTitle>
           {requiredAmount && paymentStatus === 'idle' && (
-            <DialogDescription className="landscape:text-xs">
+            <DialogDescription className="text-sm landscape:text-xs mt-1">
               Amount needed: <span className="text-primary font-semibold">${requiredAmount.toFixed(2)}</span>
             </DialogDescription>
           )}
         </DialogHeader>
 
-        <div className="space-y-3 landscape:space-y-2 mt-3 landscape:mt-2">
+        <div className="space-y-4 landscape:space-y-3 mt-2 landscape:mt-1">
           {paymentStatus === 'idle' && (
             <>
-              {/* Amount Selection */}
-              <div className="grid grid-cols-5 gap-1.5 landscape:gap-1">
+              {/* Amount Selection - Responsive grid */}
+              <div className="grid grid-cols-5 gap-2 landscape:gap-1.5">
                 {quickAmounts.map((quickAmount) => (
                   <Button
                     key={quickAmount}
                     variant={amount === quickAmount.toString() ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setAmount(quickAmount.toString())}
-                    className="font-semibold h-8 landscape:h-7 text-xs landscape:text-[10px]"
+                    className="font-semibold h-10 sm:h-11 landscape:h-8 text-sm landscape:text-xs"
                   >
                     ${quickAmount}
                   </Button>
@@ -218,8 +218,8 @@ export const TopupDialog = ({ open, onOpenChange, onSuccess, requiredAmount }: T
               </div>
 
               {/* Custom Amount Input */}
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-sm landscape:text-xs">$</span>
+              <div className="flex items-center gap-3 landscape:gap-2">
+                <span className="text-muted-foreground text-base landscape:text-sm font-medium">$</span>
                 <Input
                   type="number"
                   placeholder="Custom amount"
@@ -227,25 +227,25 @@ export const TopupDialog = ({ open, onOpenChange, onSuccess, requiredAmount }: T
                   onChange={(e) => setAmount(e.target.value)}
                   min="1"
                   step="0.01"
-                  className="text-center h-9 landscape:h-8 text-sm landscape:text-xs"
+                  className="text-center h-11 sm:h-12 landscape:h-9 text-base landscape:text-sm font-medium"
                 />
               </div>
 
-              {/* Generate QR Button - directly generates KHQR */}
+              {/* Generate QR Button */}
               <Button
                 onClick={generateQRCode}
                 disabled={loading || !amount || parseFloat(amount) <= 0}
-                className="w-full h-10 landscape:h-9 gap-2 text-sm landscape:text-xs"
+                className="w-full h-12 sm:h-14 landscape:h-10 gap-2 text-base landscape:text-sm font-semibold"
                 size="lg"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-4 h-4 landscape:w-3.5 landscape:h-3.5 animate-spin" />
+                    <Loader2 className="w-5 h-5 landscape:w-4 landscape:h-4 animate-spin" />
                     Generating...
                   </>
                 ) : (
                   <>
-                    <QrCode className="w-4 h-4 landscape:w-3.5 landscape:h-3.5" />
+                    <QrCode className="w-5 h-5 landscape:w-4 landscape:h-4" />
                     Add ${parseFloat(amount || '0').toFixed(2)} to Wallet
                   </>
                 )}
@@ -254,7 +254,7 @@ export const TopupDialog = ({ open, onOpenChange, onSuccess, requiredAmount }: T
           )}
 
           {paymentStatus === 'pending' && qrCode && (
-            <div className="space-y-3 landscape:space-y-2">
+            <div className="space-y-4 landscape:space-y-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -263,42 +263,57 @@ export const TopupDialog = ({ open, onOpenChange, onSuccess, requiredAmount }: T
                   setQrCode(null);
                   setTransactionId(null);
                 }}
-                className="-ml-2 h-7 landscape:h-6 text-xs"
+                className="-ml-2 h-8 landscape:h-7 text-sm landscape:text-xs"
               >
-                <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                <ArrowLeft className="h-4 w-4 landscape:h-3.5 landscape:w-3.5 mr-1" />
                 Back
               </Button>
 
-              <div className="bg-white rounded-lg p-3 landscape:p-2 flex justify-center">
-                <QRCode id="topup-qr-code" value={qrCode} size={180} className="landscape:!w-[120px] landscape:!h-[120px]" />
+              {/* QR Code Display - Responsive sizing */}
+              <div className="bg-white rounded-xl p-4 landscape:p-3 flex justify-center shadow-lg">
+                <QRCode 
+                  id="topup-qr-code" 
+                  value={qrCode} 
+                  size={180} 
+                  className="w-[160px] h-[160px] sm:w-[180px] sm:h-[180px] landscape:!w-[120px] landscape:!h-[120px]" 
+                />
               </div>
 
-              <div className="text-center space-y-0.5">
-                <p className="text-base landscape:text-sm font-semibold">Scan to Pay ${parseFloat(amount).toFixed(2)}</p>
-                <p className="text-xs landscape:text-[10px] text-muted-foreground">Use any Cambodian banking app</p>
+              <div className="text-center space-y-1">
+                <p className="text-lg sm:text-xl landscape:text-base font-bold">Scan to Pay ${parseFloat(amount).toFixed(2)}</p>
+                <p className="text-sm landscape:text-xs text-muted-foreground">Use any Cambodian banking app</p>
               </div>
 
-              <div className="flex items-center justify-center gap-2 text-muted-foreground text-xs landscape:text-[10px]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm landscape:text-xs py-2 landscape:py-1">
+                <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
                 Waiting for payment...
               </div>
 
               <Button
-                variant="outline"
+                variant="default"
                 onClick={manualCheckPayment}
                 disabled={checking}
-                className="w-full h-9 landscape:h-8 text-sm landscape:text-xs"
+                className="w-full h-11 landscape:h-9 text-base landscape:text-sm font-medium"
               >
-                {checking ? 'Checking...' : 'I have paid'}
+                {checking ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  'I have paid'
+                )}
               </Button>
             </div>
           )}
 
           {paymentStatus === 'completed' && (
-            <div className="flex flex-col items-center gap-2 landscape:gap-1.5 py-4 landscape:py-2">
-              <CheckCircle2 className="w-12 h-12 landscape:w-10 landscape:h-10 text-green-500" />
-              <p className="text-base landscape:text-sm font-semibold">Payment Successful!</p>
-              <p className="text-xs landscape:text-[10px] text-muted-foreground">Your wallet has been topped up</p>
+            <div className="flex flex-col items-center gap-3 landscape:gap-2 py-6 landscape:py-3">
+              <div className="p-3 rounded-full bg-green-500/10">
+                <CheckCircle2 className="w-14 h-14 landscape:w-10 landscape:h-10 text-green-500" />
+              </div>
+              <p className="text-xl landscape:text-base font-bold text-green-500">Payment Successful!</p>
+              <p className="text-sm landscape:text-xs text-muted-foreground">Your wallet has been topped up</p>
             </div>
           )}
         </div>
