@@ -74,6 +74,7 @@ const CollapsibleTabsSection = ({
   navigate,
 }: CollapsibleTabsSectionProps) => {
   const [episodesExpanded, setEpisodesExpanded] = useState(false);
+  const [forYouExpanded, setForYouExpanded] = useState(false);
   const { t } = useLanguage();
   
   // Filter episodes by selected season
@@ -276,7 +277,7 @@ const CollapsibleTabsSection = ({
       <TabsContent value="foryou" className="mt-3">
         <div className="grid grid-cols-4 gap-2">
           {forYouContent && forYouContent.length > 0 ? (
-            forYouContent.slice(0, 8).map((item) => (
+            forYouContent.slice(0, forYouExpanded ? 16 : 8).map((item) => (
               <div
                 key={item.id}
                 className="cursor-pointer transition-transform hover:scale-105"
@@ -308,6 +309,14 @@ const CollapsibleTabsSection = ({
             ))
           )}
         </div>
+        {forYouContent && forYouContent.length > 8 && (
+          <button 
+            className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-3 py-2 hover:bg-muted/50 rounded-md transition-colors"
+            onClick={() => setForYouExpanded(!forYouExpanded)}
+          >
+            {forYouExpanded ? '... Less' : '... More'}
+          </button>
+        )}
       </TabsContent>
 
       {/* Comments Tab */}
@@ -461,6 +470,8 @@ const WatchPage = () => {
   const [relatedContent, setRelatedContent] = useState<any[]>([]);
   const [watchHistory, setWatchHistory] = useState<Record<string, { progress: number; duration: number }>>({});
   const [castLoading, setCastLoading] = useState(true);
+  const [forYouExpanded, setForYouExpanded] = useState(false);
+  const [recommendedExpanded, setRecommendedExpanded] = useState(false);
   const [episodesLoading, setEpisodesLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<{ username: string | null; profile_image: string | null } | null>(null);
   const [showSubscriptionDialog, setShowSubscriptionDialog] = useState(false);
@@ -578,20 +589,20 @@ const WatchPage = () => {
       
       const recommendationType = type === 'anime' ? 'anime' : contentType;
       
-      // Fetch more items to allow randomization
+      // Fetch more items to allow randomization and expansion
       const { data } = await supabase
         .from('content')
         .select('id, title, poster_path, tmdb_id, content_type')
         .eq('content_type', recommendationType)
         .neq('id', content.id)
         .order('popularity', { ascending: false })
-        .limit(30);
+        .limit(40);
       
       if (data && data.length > 0) {
         // Shuffle array using Fisher-Yates algorithm
         const shuffled = [...data].sort(() => Math.random() - 0.5);
-        // Take first 12 for related content
-        setRelatedContent(shuffled.slice(0, 12));
+        // Take first 20 for related content (8 initial + 8 expanded + buffer)
+        setRelatedContent(shuffled.slice(0, 20));
       }
     };
     fetchRelated();
@@ -605,13 +616,13 @@ const WatchPage = () => {
       // Use content_type for matching similar content
       const currentContentType = content.content_type;
       
-      // Fetch different content for "For You" - mix of types
+      // Fetch different content for "For You" - mix of types (more for expansion)
       const { data } = await supabase
         .from('content')
         .select('id, title, poster_path, tmdb_id, content_type')
         .neq('id', content.id)
         .order('view_count', { ascending: false })
-        .limit(40);
+        .limit(50);
       
       if (data && data.length > 0) {
         // Prioritize content with matching type, then shuffle
@@ -622,12 +633,12 @@ const WatchPage = () => {
         const shuffledSame = [...sameType].sort(() => Math.random() - 0.5);
         const shuffledDifferent = [...differentType].sort(() => Math.random() - 0.5);
         
-        // Combine: first some same type, then different types for variety
-        const combined = [...shuffledSame.slice(0, 6), ...shuffledDifferent.slice(0, 6)];
+        // Combine: more items for expansion support (10 same + 10 different)
+        const combined = [...shuffledSame.slice(0, 10), ...shuffledDifferent.slice(0, 10)];
         
-        // Final shuffle to mix them
+        // Final shuffle to mix them - keep 20 for expansion
         const finalShuffled = combined.sort(() => Math.random() - 0.5);
-        setForYouContent(finalShuffled.slice(0, 12));
+        setForYouContent(finalShuffled.slice(0, 20));
       }
     };
     fetchForYou();
@@ -932,7 +943,7 @@ const WatchPage = () => {
                   <h3 className={`${isMobile ? 'text-sm' : 'text-base'} font-semibold mb-3`}>Recommended</h3>
                   <div className={`grid ${isMobile ? 'grid-cols-3 gap-2' : 'grid-cols-4 gap-2'}`}>
                     {relatedContent && relatedContent.length > 0 ? (
-                      relatedContent.slice(0, isMobile ? 6 : 8).map((item) => (
+                      relatedContent.slice(0, recommendedExpanded ? (isMobile ? 12 : 16) : (isMobile ? 6 : 8)).map((item) => (
                         <div key={item.id} className="cursor-pointer transition-transform hover:scale-105" onClick={() => {
                           const contentIdentifier = item.tmdb_id || item.id;
                           if (item.content_type === 'anime') {
@@ -956,7 +967,14 @@ const WatchPage = () => {
                       ))
                     )}
                   </div>
-                  <button className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-2">... More</button>
+                  {relatedContent && relatedContent.length > (isMobile ? 6 : 8) && (
+                    <button 
+                      className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-2 py-2 hover:bg-muted/50 rounded-md transition-colors"
+                      onClick={() => setRecommendedExpanded(!recommendedExpanded)}
+                    >
+                      {recommendedExpanded ? '... Less' : '... More'}
+                    </button>
+                  )}
                 </div>
 
                 {/* Shorts Section */}
@@ -1034,7 +1052,7 @@ const WatchPage = () => {
               <h3 className="text-base font-semibold mb-3">Recommended</h3>
               <div className="grid grid-cols-4 gap-1.5">
                 {relatedContent && relatedContent.length > 0 ? (
-                  relatedContent.slice(0, 8).map((item) => (
+                  relatedContent.slice(0, recommendedExpanded ? 16 : 8).map((item) => (
                     <div key={item.id} className="cursor-pointer transition-transform hover:scale-105" onClick={() => {
                       const contentIdentifier = item.tmdb_id || item.id;
                       if (item.content_type === 'anime') {
@@ -1058,7 +1076,14 @@ const WatchPage = () => {
                   ))
                 )}
               </div>
-              <button className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-2">... More</button>
+              {relatedContent && relatedContent.length > 8 && (
+                <button 
+                  className="w-full text-center text-xs text-muted-foreground hover:text-foreground mt-2 py-2 hover:bg-muted/50 rounded-md transition-colors"
+                  onClick={() => setRecommendedExpanded(!recommendedExpanded)}
+                >
+                  {recommendedExpanded ? '... Less' : '... More'}
+                </button>
+              )}
             </div>
 
             {/* Shorts Section */}
