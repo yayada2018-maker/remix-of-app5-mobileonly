@@ -37,6 +37,7 @@ interface EpisodesPanelProps {
   onSeasonSelect?: (seasonId: string) => void;
   showVersionFilter?: boolean;
   availableVersions?: string[];
+  contentBackdrop?: string;
 }
 
 export const EpisodesPanel = ({
@@ -49,7 +50,8 @@ export const EpisodesPanel = ({
   onEpisodeSelect,
   onSeasonSelect,
   showVersionFilter = true,
-  availableVersions = []
+  availableVersions = [],
+  contentBackdrop
 }: EpisodesPanelProps) => {
   const [selectedVersion, setSelectedVersion] = useState<string>('all');
 
@@ -145,11 +147,13 @@ export const EpisodesPanel = ({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-4">
           {filteredEpisodes.map((episode) => {
             const isCurrentEpisode = episode.id === currentEpisodeId;
+            // Use episode still_path if available, otherwise use series backdrop
+            const hasEpisodeThumbnail = !!episode.still_path;
             const thumbnailUrl = episode.still_path?.startsWith('http')
               ? episode.still_path
               : episode.still_path
                 ? `https://image.tmdb.org/t/p/w300${episode.still_path}`
-                : null;
+                : contentBackdrop || null;
 
             return (
               <button
@@ -170,16 +174,27 @@ export const EpisodesPanel = ({
                   {thumbnailUrl ? (
                     <img
                       src={thumbnailUrl}
-                      alt={episode.title}
-                      className="w-full h-full object-cover"
+                      alt={`EP ${episode.episode_number}`}
+                      className={cn(
+                        "w-full h-full object-cover",
+                        // Apply 50% opacity if using backdrop as fallback
+                        !hasEpisodeThumbnail && "opacity-50"
+                      )}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Play className="h-8 w-8 text-white/30" />
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/10 to-white/5">
+                      {/* Fallback: show large episode number */}
                     </div>
                   )}
                   
-                  {/* Play overlay */}
+                  {/* Large Episode Number Overlay - Always visible */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-white/80 text-3xl sm:text-4xl font-bold drop-shadow-lg">
+                      EP {episode.episode_number}
+                    </span>
+                  </div>
+                  
+                  {/* Play overlay on hover */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Play className="h-8 w-8 text-white" fill="white" />
                   </div>
@@ -192,22 +207,12 @@ export const EpisodesPanel = ({
                     </div>
                   )}
 
-                  {/* Episode number badge */}
-                  <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded">
-                    EP {episode.episode_number}
-                  </div>
-
                   {/* Version badge */}
                   {episode.version && (
                     <div className="absolute bottom-2 right-2 bg-primary/80 text-primary-foreground text-xs px-2 py-0.5 rounded">
                       {episode.version}
                     </div>
                   )}
-                </div>
-
-                {/* Title */}
-                <div className="p-2 bg-white/5">
-                  <p className="text-white text-xs font-medium truncate">{episode.title}</p>
                 </div>
               </button>
             );
