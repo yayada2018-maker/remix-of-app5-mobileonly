@@ -14,13 +14,16 @@ import { UpcomingSection } from '@/components/UpcomingSection';
 import AdSlot from '@/components/ads/AdSlot';
 import SeriesUpdateTodaySection from '@/components/SeriesUpdateTodaySection';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useIsTablet } from '@/hooks/use-tablet';
+import { useIsIPad } from '@/hooks/use-ipad';
 
 const Home = () => {
   const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
+  const { isIPadPortrait, isIPadLandscape } = useIsIPad();
 
-  if (isMobile) {
+  // Mobile layout: mobile devices OR iPad in portrait mode
+  const useMobileLayout = isMobile || isIPadPortrait;
+
+  if (useMobileLayout) {
     return (
       <div className="min-h-screen scrollbar-hide">
         <MobileHeroBanner page="home" />
@@ -38,28 +41,7 @@ const Home = () => {
     );
   }
 
-  // Tablet/iPad Layout - Use HeroBanner with touch optimization
-  if (isTablet) {
-    return (
-      <div className="space-y-6 pb-8 scrollbar-hide overflow-y-auto">
-        <HeroBanner page="home" />
-        <TopSection className="py-0 my-0" />
-        <SeriesUpdateTodaySection />
-        <AdSlot placement="banner" pageLocation="home_top_series" className="px-4" />
-        <TopAnimesSection />
-        <HomeContinuousWatch />
-        <TopMoviesSection />
-        <UpcomingSection />
-        <CollectionsScroll />
-        <AdSlot placement="banner" pageLocation="home_collections" className="px-4" />
-        <ContentRow title="Trending Now" />
-        <ContentRow title="New Releases" />
-        <AdSlot placement="banner" pageLocation="home_new_releases" className="px-4" />
-      </div>
-    );
-  }
-
-  // Desktop Layout
+  // Desktop Layout (also used for iPad landscape)
   return (
     <div className="pb-8">
       <HeroBanner page="home" />
