@@ -246,8 +246,8 @@ export const SupportUsOverlay = ({
           </Button>
         </div>
 
-        {/* Main Content - Responsive for landscape, scaled 15% smaller on mobile/native */}
-        <div className="text-center w-full max-w-[170px] sm:max-w-[320px] landscape:max-w-[340px] sm:landscape:max-w-[400px] mx-auto px-4 space-y-1.5 sm:space-y-3 scale-[0.85] sm:scale-100 origin-center">
+        {/* Main Content - Responsive for landscape, scaled 10% smaller on mobile/native */}
+        <div className="text-center w-full max-w-[180px] sm:max-w-[320px] landscape:max-w-[360px] sm:landscape:max-w-[400px] mx-auto px-4 space-y-1.5 sm:space-y-3 scale-[0.90] sm:scale-100 origin-center">
           {/* Initial Step - Support Us prompt */}
           {step === 'initial' && (
             <>

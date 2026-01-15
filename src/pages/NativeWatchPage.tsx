@@ -669,9 +669,22 @@ const NativeWatchPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background text-foreground pt-[env(safe-area-inset-top)]">
+      <div className="min-h-screen bg-background text-foreground pt-[env(safe-area-inset-top)] relative">
+        {/* Background with poster and theme-aware gradient */}
+        {content?.backdrop_path && (
+          <div className="fixed inset-0 z-0 pointer-events-none">
+            <img 
+              src={content.backdrop_path}
+              alt=""
+              className="w-full h-full object-cover opacity-20"
+            />
+            {/* Theme-aware gradient overlay - from bottom to top */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-background/70" />
+          </div>
+        )}
+        
         <SocialShareMeta title={content.title} description={content.overview || ''} image={content.backdrop_path || content.poster_path} type={contentType === 'movie' ? 'video.movie' : 'video.tv_show'} />
-        <div className="flex flex-col">
+        <div className="flex flex-col relative z-10">
           {/* Video Player */}
           <div className={`bg-black sticky top-[env(safe-area-inset-top)] z-50 ${isVideoFullscreen ? 'fixed inset-0 z-[9999] !top-0 !pt-0' : ''}`}>
             {videoPlayerElement}
