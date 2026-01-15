@@ -7,27 +7,26 @@ import { useIsIPad } from '@/hooks/use-ipad';
 /**
  * Smart Watch Page Router
  * Routes to NativeWatchPage on native apps and mobile devices
- * Routes to WatchPage (with full Shaka player) on desktop and iPad landscape
- * iPad portrait uses mobile layout (NativeWatchPage)
- * iPad landscape uses desktop layout (WatchPage)
+ * Routes to WatchPage (with full Shaka player) on desktop and iPad (all orientations)
+ * iPad always uses desktop Shaka player for fullscreen compatibility
  */
 const WatchPageRouter = () => {
   const isNative = Capacitor.isNativePlatform();
   const isMobile = useIsMobile();
-  const { isIPadPortrait, isIPadLandscape } = useIsIPad();
+  const { isIPad } = useIsIPad();
   
   // Use simplified native player on Android/iOS native apps
   if (isNative) {
     return <NativeWatchPage />;
   }
   
-  // iPad landscape uses desktop layout with full Shaka player
-  if (isIPadLandscape) {
+  // iPad always uses desktop layout with full Shaka player (both portrait and landscape)
+  if (isIPad) {
     return <WatchPage />;
   }
   
-  // Mobile devices and iPad portrait use mobile layout
-  if (isMobile || isIPadPortrait) {
+  // Mobile devices use mobile layout
+  if (isMobile) {
     return <NativeWatchPage />;
   }
   
