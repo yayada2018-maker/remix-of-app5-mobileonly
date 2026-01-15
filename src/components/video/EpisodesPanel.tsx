@@ -95,15 +95,11 @@ export const EpisodesPanel = ({
     <div 
       className={cn(
         "absolute z-[65] animate-fade-in",
-        isFullscreenLandscape 
-          ? "bottom-0 left-0 right-0 h-auto" // Horizontal at bottom for landscape
-          : "inset-0 bg-black/95" // Full overlay for portrait
+        // Always use bottom-anchored horizontal layout for both orientations
+        "bottom-0 left-0 right-0 h-auto"
       )}
-      style={isFullscreenLandscape ? {
+      style={{
         background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-      } : {
         backdropFilter: 'blur(10px)',
         WebkitBackdropFilter: 'blur(10px)',
       }}
@@ -111,13 +107,10 @@ export const EpisodesPanel = ({
       {/* Header */}
       <div className={cn(
         "flex items-center justify-between border-b border-white/10",
-        isFullscreenLandscape ? "px-4 py-2" : "p-4"
+        "px-4 py-2"
       )}>
         <div className="flex items-center gap-3">
-          <h3 className={cn(
-            "text-white font-semibold",
-            isFullscreenLandscape ? "text-sm" : "text-lg"
-          )}>Episodes</h3>
+          <h3 className="text-white font-semibold text-sm">Episodes</h3>
           
           {/* Season Selector */}
           {seasons.length > 1 && onSeasonSelect && (
@@ -181,193 +174,118 @@ export const EpisodesPanel = ({
         </div>
       </div>
 
-      {/* Episodes - Horizontal scroll for landscape, grid for portrait */}
-      {isFullscreenLandscape ? (
-        <div className="relative px-4 py-3">
-          {/* Left Arrow */}
-          <button 
-            onClick={scrollLeft}
-            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
+      {/* Episodes - Always horizontal scroll for both portrait and landscape */}
+      <div className="relative px-4 py-3">
+        {/* Left Arrow */}
+        <button 
+          onClick={scrollLeft}
+          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
 
-          {/* Horizontal scroll container */}
-          <div 
-            ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth px-8"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {filteredEpisodes.map((episode) => {
-              const isCurrentEpisode = episode.id === currentEpisodeId;
-              const hasEpisodeThumbnail = !!episode.still_path;
-              const thumbnailUrl = episode.still_path?.startsWith('http')
-                ? episode.still_path
-                : episode.still_path
-                  ? `https://image.tmdb.org/t/p/w300${episode.still_path}`
-                  : contentBackdrop || null;
+        {/* Horizontal scroll container */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide scroll-smooth px-8"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {filteredEpisodes.map((episode) => {
+            const isCurrentEpisode = episode.id === currentEpisodeId;
+            const hasEpisodeThumbnail = !!episode.still_path;
+            const thumbnailUrl = episode.still_path?.startsWith('http')
+              ? episode.still_path
+              : episode.still_path
+                ? `https://image.tmdb.org/t/p/w300${episode.still_path}`
+                : contentBackdrop || null;
 
-              return (
-                <button
-                  key={episode.id}
-                  onClick={() => {
-                    onEpisodeSelect(episode.id);
-                    onClose();
-                  }}
-                  className={cn(
-                    "relative group flex-shrink-0 rounded-lg overflow-hidden transition-all duration-200",
-                    "w-40 aspect-video",
-                    isCurrentEpisode 
-                      ? "ring-2 ring-cyan-400" 
-                      : "hover:ring-2 hover:ring-white/30"
+            return (
+              <button
+                key={episode.id}
+                onClick={() => {
+                  onEpisodeSelect(episode.id);
+                  onClose();
+                }}
+                className={cn(
+                  "relative group flex-shrink-0 rounded-lg overflow-hidden transition-all duration-200",
+                  // Smaller cards on portrait, larger on landscape
+                  isFullscreenLandscape ? "w-40 aspect-video" : "w-28 sm:w-32 aspect-video",
+                  isCurrentEpisode 
+                    ? "ring-2 ring-cyan-400" 
+                    : "hover:ring-2 hover:ring-white/30"
+                )}
+              >
+                {/* Thumbnail */}
+                <div className="w-full h-full bg-white/10 relative">
+                  {thumbnailUrl ? (
+                    <img
+                      src={thumbnailUrl}
+                      alt={`EP ${episode.episode_number}`}
+                      className={cn(
+                        "w-full h-full object-cover",
+                        !hasEpisodeThumbnail && "opacity-50"
+                      )}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
                   )}
-                >
-                  {/* Thumbnail */}
-                  <div className="w-full h-full bg-white/10 relative">
-                    {thumbnailUrl ? (
-                      <img
-                        src={thumbnailUrl}
-                        alt={`EP ${episode.episode_number}`}
-                        className={cn(
-                          "w-full h-full object-cover",
-                          !hasEpisodeThumbnail && "opacity-50"
-                        )}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
-                    )}
-                    
-                    {/* Word-Art Style Episode Number - Bottom Left */}
-                    <div className="absolute bottom-1 left-2 pointer-events-none">
-                      <span 
-                        className="text-white font-black text-4xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-                        style={{
-                          WebkitTextStroke: '1px rgba(255,255,255,0.3)',
-                          textShadow: '2px 2px 0 rgba(0,0,0,0.5), -1px -1px 0 rgba(255,255,255,0.1)',
-                          fontFamily: 'system-ui, -apple-system, sans-serif',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        {episode.episode_number}
-                      </span>
-                    </div>
-                    
-                    {/* Play overlay on hover */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="h-8 w-8 text-white" fill="white" />
-                    </div>
-
-                    {/* Currently playing indicator */}
-                    {isCurrentEpisode && (
-                      <div className="absolute top-1 left-1 bg-cyan-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                        <Check className="h-2.5 w-2.5" />
-                        Now
-                      </div>
-                    )}
-
-                    {/* Version badge */}
-                    {episode.version && (
-                      <div className="absolute bottom-1 right-1 bg-primary/80 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
-                        {episode.version}
-                      </div>
-                    )}
+                  
+                  {/* Word-Art Style Episode Number - Bottom Left */}
+                  <div className="absolute bottom-1 left-2 pointer-events-none">
+                    <span 
+                      className={cn(
+                        "text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]",
+                        isFullscreenLandscape ? "text-4xl" : "text-2xl sm:text-3xl"
+                      )}
+                      style={{
+                        WebkitTextStroke: '1px rgba(255,255,255,0.3)',
+                        textShadow: '2px 2px 0 rgba(0,0,0,0.5), -1px -1px 0 rgba(255,255,255,0.1)',
+                        fontFamily: 'system-ui, -apple-system, sans-serif',
+                        fontStyle: 'italic',
+                      }}
+                    >
+                      {episode.episode_number}
+                    </span>
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                  
+                  {/* Play overlay on hover */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Play className={cn("text-white", isFullscreenLandscape ? "h-8 w-8" : "h-6 w-6")} fill="white" />
+                  </div>
 
-          {/* Right Arrow */}
-          <button 
-            onClick={scrollRight}
-            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+                  {/* Currently playing indicator */}
+                  {isCurrentEpisode && (
+                    <div className="absolute top-1 left-1 bg-cyan-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <Check className="h-2.5 w-2.5" />
+                      Now
+                    </div>
+                  )}
+
+                  {/* Version badge */}
+                  {episode.version && (
+                    <div className="absolute bottom-1 right-1 bg-primary/80 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
+                      {episode.version}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        // Portrait mode - Grid with smaller numbers
-        <div className="h-[calc(100%-60px)] overflow-y-auto">
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 p-3">
-            {filteredEpisodes.map((episode) => {
-              const isCurrentEpisode = episode.id === currentEpisodeId;
-              const hasEpisodeThumbnail = !!episode.still_path;
-              const thumbnailUrl = episode.still_path?.startsWith('http')
-                ? episode.still_path
-                : episode.still_path
-                  ? `https://image.tmdb.org/t/p/w300${episode.still_path}`
-                  : contentBackdrop || null;
 
-              return (
-                <button
-                  key={episode.id}
-                  onClick={() => {
-                    onEpisodeSelect(episode.id);
-                    onClose();
-                  }}
-                  className={cn(
-                    "relative group rounded-lg overflow-hidden transition-all duration-200 aspect-video",
-                    isCurrentEpisode 
-                      ? "ring-2 ring-primary" 
-                      : "hover:ring-2 hover:ring-white/30"
-                  )}
-                >
-                  {/* Thumbnail */}
-                  <div className="w-full h-full bg-white/10 relative">
-                    {thumbnailUrl ? (
-                      <img
-                        src={thumbnailUrl}
-                        alt={`EP ${episode.episode_number}`}
-                        className={cn(
-                          "w-full h-full object-cover",
-                          !hasEpisodeThumbnail && "opacity-50"
-                        )}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
-                    )}
-                    
-                    {/* Episode Number - 50% smaller for mobile */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <span 
-                        className="text-white/90 font-bold text-2xl sm:text-4xl md:text-5xl drop-shadow-lg"
-                        style={{
-                          textShadow: '1px 1px 2px rgba(0,0,0,0.8)',
-                        }}
-                      >
-                        {episode.episode_number}
-                      </span>
-                    </div>
-                    
-                    {/* Play overlay on hover */}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="h-6 w-6 text-white" fill="white" />
-                    </div>
+        {/* Right Arrow */}
+        <button 
+          onClick={scrollRight}
+          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
 
-                    {/* Currently playing indicator */}
-                    {isCurrentEpisode && (
-                      <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-[8px] px-1 py-0.5 rounded-full flex items-center gap-0.5">
-                        <Check className="h-2 w-2" />
-                      </div>
-                    )}
-
-                    {/* Version badge */}
-                    {episode.version && (
-                      <div className="absolute bottom-1 right-1 bg-primary/80 text-primary-foreground text-[8px] px-1 py-0.5 rounded">
-                        {episode.version}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {filteredEpisodes.length === 0 && (
-            <div className="flex items-center justify-center h-40 text-white/50">
-              No episodes found
-            </div>
-          )}
+      {/* Empty state message if no episodes */}
+      {filteredEpisodes.length === 0 && (
+        <div className="flex items-center justify-center h-20 text-white/50 text-sm">
+          No episodes found
         </div>
       )}
     </div>

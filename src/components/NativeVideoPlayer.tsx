@@ -524,39 +524,54 @@ const NativeVideoPlayer = ({
     
     // Set loading state before changing source
     setIsLoading(true);
-    setCurrentServer(source);
     setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
     
-    // If we have a video element, reset it
+    // If we have a video element, save current time for potential resume
+    const savedTime = videoRef.current?.currentTime || 0;
+    
+    // Reset video element first
     if (videoRef.current) {
       videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
     }
+    
+    // Use timeout to ensure smooth state transition
+    setTimeout(() => {
+      setCurrentServer(source);
+      setCurrentTime(0);
+      setDuration(0);
+    }, 50);
   }, [currentServer]);
 
   const handleEpisodeSelect = useCallback((episodeId: string) => {
     // Set loading state immediately for smooth transition
     setIsLoading(true);
     setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
     
-    // Reset video element if available
+    // Clear video element completely for clean transition
     if (videoRef.current) {
       videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
     }
     
-    onEpisodeSelect?.(episodeId);
+    // Clear current server to force reload
+    setCurrentServer(null);
     
-    // Reset support us shown states for new episode
-    setSupportUsShownAtStart(false);
-    setSupportUsShownAt50(false);
-    setSupportUsShownAt85(false);
-    setHasAttemptedFirstPlay(false);
-    setPendingPlayAfterOverlay(false);
+    // Use a slight delay to ensure state updates before new sources load
+    setTimeout(() => {
+      setCurrentTime(0);
+      setDuration(0);
+      onEpisodeSelect?.(episodeId);
+      
+      // Reset support us shown states for new episode
+      setSupportUsShownAtStart(false);
+      setSupportUsShownAt50(false);
+      setSupportUsShownAt85(false);
+      setHasAttemptedFirstPlay(false);
+      setPendingPlayAfterOverlay(false);
+    }, 100);
   }, [onEpisodeSelect]);
 
   // Handle support us overlay skip/close - play video if pending
