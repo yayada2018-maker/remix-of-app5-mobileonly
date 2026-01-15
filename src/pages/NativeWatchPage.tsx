@@ -368,6 +368,7 @@ const NativeWatchPage = () => {
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [videoSources, setVideoSources] = useState<any[]>([]);
+  const [manualEpisodeSelection, setManualEpisodeSelection] = useState<string | null>(null);
   
 const [castMembers, setCastMembers] = useState<any[]>([]);
   const [forYouContent, setForYouContent] = useState<any[]>([]);
@@ -409,6 +410,7 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
     setCurrentEpisode(null);
     setSelectedSeasonId(null);
     setVideoSources([]);
+    setManualEpisodeSelection(null);
   }, [id, type]);
 
   // Fetch user profile
@@ -425,8 +427,11 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
     fetchProfile();
   }, [user?.id]);
 
-  // Initialize video sources
+  // Initialize video sources - skip if user manually selected an episode
   useEffect(() => {
+    // Skip initialization if user manually selected an episode
+    if (manualEpisodeSelection) return;
+    
     if (contentType === 'movie' && allVideoSources.length > 0) {
       setVideoSources(allVideoSources);
     } else if (contentType === 'series' && content?.id) {
@@ -486,7 +491,7 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
         }
       }
     }
-  }, [content?.id, allVideoSources.length, episodes, seasons, season, episode, contentType, selectedSeasonId]);
+  }, [content?.id, allVideoSources.length, episodes, seasons, season, episode, contentType, selectedSeasonId, manualEpisodeSelection]);
 
   // Fetch "For You" content with randomization
   useEffect(() => {
@@ -647,17 +652,21 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
   }, [content, contentType]);
 
   const fetchVideoSource = async (episodeId: string) => {
+    // Mark this as a manual selection to prevent useEffect from overriding
+    setManualEpisodeSelection(episodeId);
+    
     // Clear current sources first for smooth transition
     setVideoSources([]);
     
     // Small delay for clean state reset
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     const sources = allVideoSources.filter(s => s.episode_id === episodeId);
     const ep = episodes.find(e => e.id === episodeId);
     
     if (ep) {
       setCurrentEpisode(ep);
+      // Set video sources but don't trigger autoplay - player handles this
       setVideoSources(sources);
     }
   };

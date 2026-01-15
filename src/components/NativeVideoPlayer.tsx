@@ -218,13 +218,38 @@ const NativeVideoPlayer = ({
     return videoSources.length > 0 && videoSources.every(s => s.permission === 'web_only');
   }, [videoSources]);
 
-  // Set initial server
+  // Track the current episode to detect episode changes
+  const prevEpisodeIdRef = useRef<string | undefined>(currentEpisodeId);
+
+  // Set initial server when sources change or episode changes
   useEffect(() => {
-    if (allAvailableSources.length > 0 && !currentServer) {
+    // Detect if episode changed
+    const episodeChanged = prevEpisodeIdRef.current !== currentEpisodeId;
+    
+    if (allAvailableSources.length > 0 && (!currentServer || episodeChanged)) {
       const defaultSource = allAvailableSources.find(s => s.is_default) || allAvailableSources[0];
       setCurrentServer(defaultSource);
+      
+      // Reset player state when episode changes
+      if (episodeChanged) {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        setDuration(0);
+        setHasAttemptedFirstPlay(false);
+        setSupportUsShownAtStart(false);
+        setSupportUsShownAt50(false);
+        setSupportUsShownAt85(false);
+        setPendingPlayAfterOverlay(false);
+        
+        // Clear video element
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+      }
     }
-  }, [allAvailableSources, currentServer]);
+    
+    prevEpisodeIdRef.current = currentEpisodeId;
+  }, [allAvailableSources, currentServer, currentEpisodeId]);
 
   // Extract available qualities from current server's quality_urls
   useEffect(() => {
