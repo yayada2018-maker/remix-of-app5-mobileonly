@@ -197,13 +197,14 @@ const CollapsibleTabsSection = ({
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2 }}
                         className={`relative aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-all hover:scale-[1.02] ${isActive ? 'ring-2 ring-primary' : ''}`}
-                        onClick={() => {
-                          // Switch episode via fetchVideoSource and navigate to the new episode
+                        onClick={async () => {
+                          // Clear video sources first
                           fetchVideoSource(ep.id);
-                          // Navigate to the episode URL for proper routing
+                          // Update URL without causing a full reload
                           const seasonNum = seasons.find(s => s.id === ep.season_id)?.season_number || 1;
                           const contentIdentifier = content?.tmdb_id || content?.id;
-                          navigate(`/watch/series/${contentIdentifier}/${seasonNum}/${ep.episode_number}`);
+                          // Use replace to avoid adding to history and prevent useEffect reset
+                          window.history.replaceState({}, '', `/watch/series/${contentIdentifier}/${seasonNum}/${ep.episode_number}`);
                         }}
                       >
                         <img
@@ -368,8 +369,10 @@ const NativeWatchPage = () => {
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [videoSources, setVideoSources] = useState<any[]>([]);
   
-  const [castMembers, setCastMembers] = useState<any[]>([]);
+const [castMembers, setCastMembers] = useState<any[]>([]);
   const [forYouContent, setForYouContent] = useState<any[]>([]);
+  const [relatedContent, setRelatedContent] = useState<any[]>([]);
+  const [shorts, setShorts] = useState<any[]>([]);
   const [watchHistory, setWatchHistory] = useState<Record<string, { progress: number; duration: number }>>({});
   const [castLoading, setCastLoading] = useState(true);
   const [episodesLoading, setEpisodesLoading] = useState(false);
@@ -521,6 +524,43 @@ const NativeWatchPage = () => {
     fetchForYou();
   }, [content?.id, content?.content_type]);
 
+  // Fetch Recommended content (same type as current)
+  useEffect(() => {
+    const fetchRelated = async () => {
+      if (!content?.id) return;
+      
+      const recommendationType = type === 'anime' ? 'anime' : contentType;
+      
+      const { data } = await supabase
+        .from('content')
+        .select('id, title, poster_path, tmdb_id, content_type')
+        .eq('content_type', recommendationType)
+        .neq('id', content.id)
+        .order('popularity', { ascending: false })
+        .limit(20);
+      
+      if (data && data.length > 0) {
+        const shuffled = [...data].sort(() => Math.random() - 0.5);
+        setRelatedContent(shuffled.slice(0, 12));
+      }
+    };
+    fetchRelated();
+  }, [content?.id, contentType, type]);
+
+  // Fetch Shorts
+  useEffect(() => {
+    const fetchShorts = async () => {
+      const { data } = await supabase
+        .from('shorts')
+        .select('*')
+        .eq('status', 'active')
+        .order('views', { ascending: false })
+        .limit(8);
+      if (data) setShorts(data);
+    };
+    fetchShorts();
+  }, []);
+
   // Fetch cast
   useEffect(() => {
     const fetchCast = async () => {
@@ -607,10 +647,19 @@ const NativeWatchPage = () => {
   }, [content, contentType]);
 
   const fetchVideoSource = async (episodeId: string) => {
+    // Clear current sources first for smooth transition
+    setVideoSources([]);
+    
+    // Small delay for clean state reset
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
     const sources = allVideoSources.filter(s => s.episode_id === episodeId);
-    setVideoSources(sources);
     const ep = episodes.find(e => e.id === episodeId);
-    if (ep) setCurrentEpisode(ep);
+    
+    if (ep) {
+      setCurrentEpisode(ep);
+      setVideoSources(sources);
+    }
   };
 
   const desktopCastScrollRef = useSwipeScroll({ enabled: true });
@@ -773,6 +822,61 @@ const NativeWatchPage = () => {
                   forYouContent={forYouContent}
                   navigate={navigate}
                 />
+
+                {/* Recommended Section */}
+                {relatedContent.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Recommended</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {relatedContent.slice(0, 6).map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="cursor-pointer transition-transform hover:scale-105" 
+                          onClick={() => {
+                            const contentIdentifier = item.tmdb_id || item.id;
+                            if (item.content_type === 'anime') {
+                              navigate(`/watch/anime/${contentIdentifier}/1/1`);
+                            } else if (item.content_type === 'series') {
+                              navigate(`/watch/series/${contentIdentifier}/1/1`);
+                            } else {
+                              navigate(`/watch/movie/${contentIdentifier}`);
+                            }
+                          }}
+                        >
+                          <div className="aspect-[2/3] rounded-md overflow-hidden">
+                            <img 
+                              src={item.poster_path || "/placeholder.svg"} 
+                              alt={item.title} 
+                              className="w-full h-full object-cover hover:opacity-80 transition-opacity" 
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shorts Section */}
+                {shorts.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Shorts</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {shorts.slice(0, 6).map((short) => (
+                        <div 
+                          key={short.id} 
+                          className="aspect-[9/16] rounded-md overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-all hover:scale-105"
+                          onClick={() => navigate(`/short?id=${short.id}`)}
+                        >
+                          <img 
+                            src={short.thumbnail_url || "/placeholder.svg"} 
+                            alt={short.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Subscription Banner */}
                 <div className="bg-primary/10 border border-primary/20 rounded-md p-2.5">
