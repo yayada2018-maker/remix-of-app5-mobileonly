@@ -197,7 +197,14 @@ const CollapsibleTabsSection = ({
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2 }}
                         className={`relative aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-all hover:scale-[1.02] ${isActive ? 'ring-2 ring-primary' : ''}`}
-                        onClick={() => fetchVideoSource(ep.id)}
+                        onClick={() => {
+                          // Switch episode via fetchVideoSource and navigate to the new episode
+                          fetchVideoSource(ep.id);
+                          // Navigate to the episode URL for proper routing
+                          const seasonNum = seasons.find(s => s.id === ep.season_id)?.season_number || 1;
+                          const contentIdentifier = content?.tmdb_id || content?.id;
+                          navigate(`/watch/series/${contentIdentifier}/${seasonNum}/${ep.episode_number}`);
+                        }}
                       >
                         <img
                           src={ep.still_path || content?.backdrop_path || "/placeholder.svg"}
@@ -221,8 +228,8 @@ const CollapsibleTabsSection = ({
                           </div>
                         )}
                         <div className="absolute bottom-1 left-2">
-                          <span className="text-6xl font-black text-white leading-none" style={{
-                            textShadow: '3px 3px 0px rgba(0,0,0,0.9), 6px 6px 10px rgba(0,0,0,0.5)',
+                          <span className="text-3xl font-black text-white leading-none" style={{
+                            textShadow: '2px 2px 0px rgba(0,0,0,0.9), 4px 4px 8px rgba(0,0,0,0.5)',
                             WebkitTextStroke: '1px rgba(255,255,255,0.3)',
                           }}>
                             {ep.episode_number}
@@ -669,19 +676,17 @@ const NativeWatchPage = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-background text-foreground pt-[env(safe-area-inset-top)] relative">
-        {/* Background with poster and theme-aware gradient */}
-        {content?.backdrop_path && (
-          <div className="fixed inset-0 z-0 pointer-events-none">
-            <img 
-              src={content.backdrop_path}
-              alt=""
-              className="w-full h-full object-cover opacity-20"
-            />
-            {/* Theme-aware gradient overlay - from bottom to top */}
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/95 to-background/70" />
-          </div>
-        )}
+      <div className="min-h-screen text-foreground pt-[env(safe-area-inset-top)] relative">
+        {/* Background with poster/backdrop and theme-aware gradient - no solid background color */}
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          <img 
+            src={content?.poster_path || content?.backdrop_path || "/placeholder.svg"}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+          {/* Theme-aware gradient overlay - from bottom to top */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent dark:from-background dark:via-background/85 dark:to-transparent" />
+        </div>
         
         <SocialShareMeta title={content.title} description={content.overview || ''} image={content.backdrop_path || content.poster_path} type={contentType === 'movie' ? 'video.movie' : 'video.tv_show'} />
         <div className="flex flex-col relative z-10">
