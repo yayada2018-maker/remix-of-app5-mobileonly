@@ -146,21 +146,35 @@ const AdminMoviesAdd = () => {
       // Upload images to iDrive E2 if enabled
       if (uploadToIdrive) {
         toast.info("Uploading images to iDrive E2...");
-        const { posterUrl, backdropUrl } = await uploadTmdbImagesToIdrive(
-          result.id,
-          result.poster_path,
-          result.backdrop_path,
-          'movie'
-        );
-        
-        // Use iDrive URLs if upload succeeded
-        if (posterUrl) {
-          finalPosterPath = posterUrl;
-          console.log("Poster uploaded to iDrive:", posterUrl);
-        }
-        if (backdropUrl) {
-          finalBackdropPath = backdropUrl;
-          console.log("Backdrop uploaded to iDrive:", backdropUrl);
+        try {
+          const { posterUrl, backdropUrl } = await uploadTmdbImagesToIdrive(
+            result.id,
+            result.poster_path,
+            result.backdrop_path,
+            'movie'
+          );
+          
+          // Use iDrive URLs if upload succeeded
+          if (posterUrl) {
+            finalPosterPath = posterUrl;
+            console.log("Poster uploaded to iDrive:", posterUrl);
+          } else if (result.poster_path) {
+            console.warn("Poster upload failed, using TMDB URL as fallback");
+          }
+          if (backdropUrl) {
+            finalBackdropPath = backdropUrl;
+            console.log("Backdrop uploaded to iDrive:", backdropUrl);
+          } else if (result.backdrop_path) {
+            console.warn("Backdrop upload failed, using TMDB URL as fallback");
+          }
+          
+          // Show warning if any upload failed
+          if ((!posterUrl && result.poster_path) || (!backdropUrl && result.backdrop_path)) {
+            toast.warning("Some images couldn't be uploaded to iDrive E2. Using TMDB URLs as fallback.");
+          }
+        } catch (uploadError) {
+          console.error("iDrive upload error:", uploadError);
+          toast.warning("Failed to upload images to iDrive E2. Using TMDB URLs as fallback.");
         }
       }
       
