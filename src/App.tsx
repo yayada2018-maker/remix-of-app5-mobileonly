@@ -35,6 +35,7 @@ import AdminContentManagement from "./pages/AdminContentManagement";
 import AdminContentEdit from "./pages/AdminContentEdit";
 import AdminMovies from "./pages/AdminMovies";
 import AdminMoviesEdit from "./pages/AdminMoviesEdit";
+import AdminMoviesAdd from "./pages/AdminMoviesAdd";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSubscriptions from "./pages/AdminSubscriptions";
 import AdminPlaceholder from "./pages/AdminPlaceholder";
@@ -146,7 +147,7 @@ const App = () => {
             <Route path="/admin/movies" element={<AdminMovies />} />
             <Route path="/admin/movies/:id/edit" element={<AdminMoviesEdit />} />
             <Route path="/admin/series/new" element={<AdminSeriesAdd />} />
-            <Route path="/admin/movies/new" element={<AdminMoviesEdit />} />
+            <Route path="/admin/movies/new" element={<AdminMoviesAdd />} />
             <Route path="/admin/series" element={<AdminSeries />} />
             <Route path="/admin/series/:tmdbId/edit" element={<AdminSeriesEdit />} />
             <Route path="/admin/series/:tmdbId/:season/:episode/edit" element={<AdminEpisodeEdit />} />
