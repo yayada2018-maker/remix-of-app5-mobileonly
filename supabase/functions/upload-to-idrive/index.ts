@@ -23,24 +23,32 @@ serve(async (req) => {
     const { fileName, fileData, bucket, contentType, storage = 'storage1' }: UploadRequest = await req.json();
 
     // Get credentials from environment
-    const endpoint = storage === 'storage1' 
+    const rawEndpoint = storage === 'storage1'
       ? Deno.env.get('IDRIVE_E2_STORAGE1_ENDPOINT')
       : Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT');
-    
+
+    const endpoint = rawEndpoint?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
     const accessKeyId = storage === 'storage1'
       ? Deno.env.get('IDRIVE_E2_STORAGE1_ACCESS_KEY')
       : Deno.env.get('IDRIVE_E2_STORAGE2_ACCESS_KEY');
-    
+
     const secretAccessKey = storage === 'storage1'
       ? Deno.env.get('IDRIVE_E2_STORAGE1_SECRET_KEY')
       : Deno.env.get('IDRIVE_E2_STORAGE2_SECRET_KEY');
 
-    const region = storage === 'storage2'
-      ? Deno.env.get('IDRIVE_E2_STORAGE2_REGION') || 'ap-southeast-1'
-      : 'us-east-1';
+    // IMPORTANT: hardcode region for storage2 to avoid placeholder/invalid secret values.
+    const region = storage === 'storage2' ? 'ap-southeast-1' : 'us-east-1';
+
+    const debug = {
+      storage,
+      envEndpoint: rawEndpoint ?? null,
+      envRegion: Deno.env.get('IDRIVE_E2_STORAGE2_REGION') ?? null,
+      usedRegion: region,
+    };
 
     if (!endpoint || !accessKeyId || !secretAccessKey) {
-      throw new Error('Storage credentials not configured');
+      throw new Error(`Storage credentials not configured. Debug: ${JSON.stringify(debug)}`);
     }
 
     // Create S3 client
