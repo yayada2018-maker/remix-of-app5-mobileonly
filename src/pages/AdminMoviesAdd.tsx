@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, Search } from "lucide-react";
+import { ArrowLeft, Save, Search, Loader2 } from "lucide-react";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -41,6 +42,8 @@ const AdminMoviesAdd = () => {
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [uploadToIdrive, setUploadToIdrive] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, currentFile: '' });
   const [formData, setFormData] = useState({
     title: "",
     poster_path: "",
@@ -145,13 +148,15 @@ const AdminMoviesAdd = () => {
       
       // Upload images to iDrive E2 if enabled
       if (uploadToIdrive) {
-        toast.info("Uploading images to iDrive E2...");
+        setIsUploading(true);
+        setUploadProgress({ current: 0, total: 2, currentFile: 'Starting upload...' });
         try {
           const { posterUrl, backdropUrl } = await uploadTmdbImagesToIdrive(
             result.id,
             result.poster_path,
             result.backdrop_path,
-            'movie'
+            'movie',
+            (progress) => setUploadProgress(progress)
           );
           
           // Use iDrive URLs if upload succeeded
@@ -175,6 +180,8 @@ const AdminMoviesAdd = () => {
         } catch (uploadError) {
           console.error("iDrive upload error:", uploadError);
           toast.warning("Failed to upload images to iDrive E2. Using TMDB URLs as fallback.");
+        } finally {
+          setIsUploading(false);
         }
       }
       
@@ -382,6 +389,22 @@ const AdminMoviesAdd = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Upload Progress Indicator */}
+            {isUploading && (
+              <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm font-medium">Uploading to iDrive E2...</span>
+                </div>
+                <Progress 
+                  value={uploadProgress.total > 0 ? (uploadProgress.current / uploadProgress.total) * 100 : 0} 
+                  className="h-2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {uploadProgress.currentFile} ({uploadProgress.current}/{uploadProgress.total})
+                </p>
+              </div>
+            )}
             <div className="flex gap-2 relative" ref={searchRef}>
               <div className="flex-1 relative">
                 <Input

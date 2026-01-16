@@ -7,6 +7,10 @@ interface UploadResult {
   backdropUrl: string | null;
 }
 
+export interface UploadProgressCallback {
+  (progress: { current: number; total: number; currentFile: string }) : void;
+}
+
 /**
  * Downloads TMDB images and uploads them to iDrive E2 storage2
  * Returns the new iDrive URLs for poster and backdrop
@@ -15,16 +19,21 @@ export async function uploadTmdbImagesToIdrive(
   tmdbId: number,
   posterPath: string | null,
   backdropPath: string | null,
-  contentType: 'movie' | 'tv' = 'movie'
+  contentType: 'movie' | 'tv' = 'movie',
+  onProgress?: UploadProgressCallback
 ): Promise<UploadResult> {
   const results: UploadResult = {
     posterUrl: null,
     backdropUrl: null,
   };
 
+  const totalFiles = (posterPath ? 1 : 0) + (backdropPath ? 1 : 0);
+  let completedFiles = 0;
+
   try {
     // Upload poster
     if (posterPath) {
+      onProgress?.({ current: completedFiles, total: totalFiles, currentFile: 'Uploading poster...' });
       const posterFileName = `posters/${contentType}/${tmdbId}${posterPath}`;
       const posterTmdbUrl = `https://image.tmdb.org/t/p/original${posterPath}`;
       
@@ -32,10 +41,12 @@ export async function uploadTmdbImagesToIdrive(
       if (posterResult) {
         results.posterUrl = posterResult;
       }
+      completedFiles++;
     }
 
     // Upload backdrop
     if (backdropPath) {
+      onProgress?.({ current: completedFiles, total: totalFiles, currentFile: 'Uploading backdrop...' });
       const backdropFileName = `backdrops/${contentType}/${tmdbId}${backdropPath}`;
       const backdropTmdbUrl = `https://image.tmdb.org/t/p/original${backdropPath}`;
       
@@ -43,7 +54,10 @@ export async function uploadTmdbImagesToIdrive(
       if (backdropResult) {
         results.backdropUrl = backdropResult;
       }
+      completedFiles++;
     }
+    
+    onProgress?.({ current: completedFiles, total: totalFiles, currentFile: 'Complete!' });
   } catch (error) {
     console.error('Error uploading TMDB images to iDrive:', error);
   }
