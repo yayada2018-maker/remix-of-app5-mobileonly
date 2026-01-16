@@ -32,7 +32,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { NativeScreenProtection } from '@/utils/nativeScreenProtection';
 import { usePinchToZoom } from '@/hooks/usePinchToZoom';
 import { VideoSettingsMenu } from '@/components/VideoSettingsMenu';
-import { useNativeShakaPlayer } from '@/hooks/useNativeShakaPlayer';
+import { useNativeShakaPlayer, detectSourceType } from '@/hooks/useNativeShakaPlayer';
 
 interface Episode {
   id: string;
@@ -72,33 +72,62 @@ interface NativeVideoPlayerProps {
   onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
-// Helpers
+// Debug logging for native player
+const logNativeDebug = (context: string, ...args: any[]) => {
+  if (Capacitor.isNativePlatform()) {
+    console.log(`[NativeVideoPlayer] ${context}:`, ...args);
+  }
+};
+
+// Helpers - Enhanced source type detection with logging
 const normalizeType = (rawType?: string, url?: string): "mp4" | "hls" | "iframe" => {
   const t = (rawType || "").toString().toLowerCase().trim();
   
   // Explicit type checks first
-  if (t === "iframe" || t === "embed") return "iframe";
-  if (t === "mp4") return "mp4";
-  if (t === "hls" || t === "m3u8") return "hls";
+  if (t === "iframe" || t === "embed") {
+    logNativeDebug('normalizeType', 'Explicit iframe type detected');
+    return "iframe";
+  }
+  if (t === "mp4") {
+    logNativeDebug('normalizeType', 'Explicit mp4 type detected');
+    return "mp4";
+  }
+  if (t === "hls" || t === "m3u8") {
+    logNativeDebug('normalizeType', 'Explicit hls type detected');
+    return "hls";
+  }
   
   // URL-based detection
   const u = (url || "").toLowerCase();
   
-  // Check for MP4 files
-  if (u.endsWith(".mp4") || u.includes(".mp4?") || u.includes("mp4")) return "mp4";
-  
-  // Check for HLS streams
-  if (u.endsWith(".m3u8") || u.includes(".m3u8?") || u.includes("m3u8")) return "hls";
+  // Use the shared detection from Shaka hook for consistency
+  const detectedType = detectSourceType(url || '');
+  if (detectedType === 'hls') {
+    logNativeDebug('normalizeType', 'HLS detected from URL', url?.substring(0, 80));
+    return 'hls';
+  }
+  if (detectedType === 'mp4') {
+    logNativeDebug('normalizeType', 'MP4 detected from URL', url?.substring(0, 80));
+    return 'mp4';
+  }
   
   // Check for embed/iframe sources
-  if (u.includes("youtube.com") || u.includes("youtu.be") || u.includes("player.") || u.includes("embed")) return "iframe";
-  if (u.includes("vk.com/video") || u.includes("vk.ru/video") || u.includes("video_ext.php")) return "iframe";
+  if (u.includes("youtube.com") || u.includes("youtu.be") || u.includes("player.") || u.includes("embed")) {
+    logNativeDebug('normalizeType', 'iframe detected (youtube/embed)');
+    return "iframe";
+  }
+  if (u.includes("vk.com/video") || u.includes("vk.ru/video") || u.includes("video_ext.php")) {
+    logNativeDebug('normalizeType', 'iframe detected (vk)');
+    return "iframe";
+  }
   
   // Default to mp4 for direct video URLs (not iframe)
   if (u.startsWith("http") && !u.includes("embed") && !u.includes("player")) {
+    logNativeDebug('normalizeType', 'Defaulting to mp4 for HTTP URL');
     return "mp4";
   }
   
+  logNativeDebug('normalizeType', 'Defaulting to iframe');
   return "iframe";
 };
 
@@ -456,7 +485,15 @@ const NativeVideoPlayer = ({
 
   // Load video source (MP4 or HLS)
   useEffect(() => {
-    if (!currentServer || !isPlayableSource || !videoRef.current || isLocked) return;
+    if (!currentServer || !isPlayableSource || !videoRef.current || isLocked) {
+      logNativeDebug('loadVideo', 'Skip loading:', { 
+        hasServer: !!currentServer, 
+        isPlayable: isPlayableSource, 
+        hasVideoRef: !!videoRef.current, 
+        isLocked 
+      });
+      return;
+    }
     
     const loadVideo = async () => {
       setIsLoading(true);
@@ -473,25 +510,55 @@ const NativeVideoPlayer = ({
                                    Object.values(qualityUrls)[Object.values(qualityUrls).length - 1] ||
                                    currentServer.url;
         videoUrl = selectedQualityUrl || currentServer.url;
+        logNativeDebug('loadVideo', 'Using quality URL:', { quality: currentQuality, url: videoUrl?.substring(0, 80) });
       }
       
-      console.log(`Loading ${sourceType} source:`, videoUrl);
+      logNativeDebug('loadVideo', `Loading ${sourceType} source:`, {
+        url: videoUrl?.substring(0, 80),
+        serverName: currentServer.server_name,
+        sourceType,
+      });
       
       if (sourceType === 'hls') {
         // Use Shaka Player for HLS
+        logNativeDebug('loadVideo', 'Using Shaka Player for HLS');
         const success = await loadShakaSource(videoUrl, 'application/x-mpegURL');
         if (!success) {
           console.error('Failed to load HLS source with Shaka');
+          logNativeDebug('loadVideo', 'HLS load failed');
+        } else {
+          logNativeDebug('loadVideo', 'HLS load successful');
         }
       } else {
         // For MP4, use direct src loading for better native compatibility
+        logNativeDebug('loadVideo', 'Using direct src for MP4');
         try {
           await cleanupShaka();
-          videoRef.current.src = videoUrl;
-          videoRef.current.load();
-          restoreProgress();
+          
+          // Add additional video attributes for mobile optimization
+          const video = videoRef.current;
+          if (video) {
+            video.preload = 'metadata';
+            video.playsInline = true;
+            video.src = videoUrl;
+            video.load();
+            
+            // Wait for loadedmetadata before restoring progress
+            video.addEventListener('loadedmetadata', () => {
+              logNativeDebug('loadVideo', 'MP4 metadata loaded, duration:', video.duration);
+              restoreProgress();
+            }, { once: true });
+            
+            video.addEventListener('error', (e) => {
+              logNativeDebug('loadVideo', 'MP4 load error:', {
+                error: video.error?.code,
+                message: video.error?.message,
+              });
+            }, { once: true });
+          }
         } catch (error) {
           console.error('Error loading MP4:', error);
+          logNativeDebug('loadVideo', 'MP4 load exception:', error);
         }
         setIsLoading(false);
       }

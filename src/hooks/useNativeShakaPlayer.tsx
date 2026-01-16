@@ -15,6 +15,58 @@ interface NativeShakaConfig {
   onLoaded?: () => void;
 }
 
+// Debug logging helper
+const logDebug = (context: string, ...args: any[]) => {
+  if (Capacitor.isNativePlatform()) {
+    console.log(`[NativeShakaPlayer] ${context}:`, ...args);
+  }
+};
+
+/**
+ * Detect video source type from URL
+ */
+export function detectSourceType(url: string): 'mp4' | 'hls' | 'dash' | 'unknown' {
+  const lowerUrl = url.toLowerCase();
+  
+  // HLS detection
+  if (lowerUrl.includes('.m3u8') || lowerUrl.includes('m3u8')) {
+    logDebug('detectSourceType', 'Detected HLS stream', url.substring(0, 100));
+    return 'hls';
+  }
+  
+  // DASH detection
+  if (lowerUrl.includes('.mpd') || lowerUrl.includes('mpd')) {
+    logDebug('detectSourceType', 'Detected DASH stream', url.substring(0, 100));
+    return 'dash';
+  }
+  
+  // MP4 detection
+  if (lowerUrl.includes('.mp4') || lowerUrl.includes('mp4')) {
+    logDebug('detectSourceType', 'Detected MP4 file', url.substring(0, 100));
+    return 'mp4';
+  }
+  
+  logDebug('detectSourceType', 'Unknown source type', url.substring(0, 100));
+  return 'unknown';
+}
+
+/**
+ * Get network quality estimate
+ */
+function getNetworkQuality(): { type: string; downlink: number; effectiveType: string } {
+  const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+  
+  if (connection) {
+    return {
+      type: connection.type || 'unknown',
+      downlink: connection.downlink || 10, // Mbps
+      effectiveType: connection.effectiveType || '4g',
+    };
+  }
+  
+  return { type: 'unknown', downlink: 10, effectiveType: '4g' };
+}
+
 /**
  * Optimized Shaka Player hook for native Capacitor apps
  * Provides better buffering, reduced battery drain, and smoother playback
@@ -39,22 +91,38 @@ export function useNativeShakaPlayer({
   
   // Native-optimized Shaka configuration
   const getNativeConfig = useCallback(() => {
+    const networkQuality = getNetworkQuality();
+    logDebug('getNativeConfig', 'Network quality:', networkQuality);
+    
+    // Adjust buffer based on network quality
+    const getBufferGoal = () => {
+      if (!isNative) return 30;
+      switch (networkQuality.effectiveType) {
+        case '4g': return 20;
+        case '3g': return 30;
+        case '2g': return 45;
+        default: return 20;
+      }
+    };
+    
+    const bufferGoal = getBufferGoal();
+    
     // Base configuration optimized for mobile
     const baseConfig = {
       streaming: {
-        // Lower buffer for faster start, but enough for smooth playback
-        bufferingGoal: isNative ? 15 : 30,
-        // Quick recovery from rebuffering
-        rebufferingGoal: isNative ? 1 : 2,
+        // Adaptive buffer based on network - larger buffer on slow networks
+        bufferingGoal: bufferGoal,
+        // Quick recovery from rebuffering - smaller on fast networks
+        rebufferingGoal: isNative ? Math.max(1, bufferGoal / 10) : 2,
         // Reduce memory usage on mobile
-        bufferBehind: isNative ? 15 : 30,
+        bufferBehind: isNative ? Math.min(bufferGoal, 20) : 30,
         // Faster segment fetch for responsive seeking
         retryParameters: {
-          maxAttempts: 5,
-          baseDelay: 500,
+          maxAttempts: 6,
+          baseDelay: 300,
           backoffFactor: 1.5,
-          timeout: isNative ? 15000 : 30000,
-          fuzzFactor: 0.5,
+          timeout: isNative ? 12000 : 30000,
+          fuzzFactor: 0.3,
         },
         // Enable low latency for live streams
         lowLatencyMode: false,
@@ -63,50 +131,70 @@ export function useNativeShakaPlayer({
         // Use MediaSource more efficiently
         useNativeHlsOnSafari: platform === 'ios',
         // Segment prefetch for smoother playback
-        segmentPrefetchLimit: isNative ? 2 : 3,
+        segmentPrefetchLimit: isNative ? 3 : 4,
         // Reduce start latency
-        smallGapLimit: 0.5,
+        smallGapLimit: 0.3,
         jumpLargeGaps: true,
-        // Stall detection
+        // Stall detection - more aggressive on mobile
         stallEnabled: true,
-        stallThreshold: 1,
-        stallSkip: 0.1,
+        stallThreshold: isNative ? 0.5 : 1,
+        stallSkip: isNative ? 0.15 : 0.1,
         // Safe seek adjustment
         safeSeekOffset: 0,
-        // Gap detection
-        gapDetectionThreshold: 0.5,
+        // Gap detection - more tolerant on mobile
+        gapDetectionThreshold: isNative ? 0.3 : 0.5,
+        // Auto recovery from errors
+        failureCallback: () => {
+          logDebug('streaming', 'Failure callback triggered, attempting recovery');
+        },
+        // Start at lower quality for faster start
+        startAtSegmentBoundary: isNative,
+        // Ignore text track failures
+        ignoreTextStreamFailures: true,
+        // Don't fail on audio/video track failures
+        alwaysStreamText: false,
       },
       abr: {
         enabled: autoQualityEnabled,
-        // Start with estimated bandwidth
-        defaultBandwidthEstimate: estimatedBandwidth,
+        // Dynamic bandwidth estimate based on network
+        defaultBandwidthEstimate: networkQuality.effectiveType === '4g' 
+          ? Math.max(estimatedBandwidth, 8000000) 
+          : networkQuality.effectiveType === '3g' 
+            ? 2000000 
+            : 500000,
         // More conservative switching on mobile to reduce buffering
-        switchInterval: isNative ? 8 : 4,
-        // Higher upgrade threshold for stability
-        bandwidthUpgradeTarget: isNative ? 0.75 : 0.85,
-        // Lower downgrade threshold to prevent stuttering
-        bandwidthDowngradeTarget: isNative ? 0.90 : 0.95,
+        switchInterval: isNative ? 6 : 4,
+        // Higher upgrade threshold for stability - don't upgrade too quickly
+        bandwidthUpgradeTarget: isNative ? 0.70 : 0.85,
+        // Lower downgrade threshold to prevent stuttering - downgrade faster
+        bandwidthDowngradeTarget: isNative ? 0.85 : 0.95,
         // Limit resolution on mobile for battery/data
         restrictions: isNative ? {
-          maxHeight: 1080,
+          maxHeight: platform === 'ios' ? 1080 : 1080,
           maxWidth: 1920,
-          maxBandwidth: platform === 'ios' ? 8000000 : 10000000,
+          maxBandwidth: networkQuality.effectiveType === '4g' 
+            ? 12000000 
+            : networkQuality.effectiveType === '3g' 
+              ? 4000000 
+              : 1500000,
         } : {},
         // Ignore device pixel ratio for consistent behavior
         ignoreDevicePixelRatio: true,
-        // Use smooth switching
+        // Don't clear buffer on switch - smoother transitions
         clearBufferSwitch: false,
-        // Safer switching threshold
-        safeMarginSwitch: isNative ? 2 : 1,
+        // Safer switching margin
+        safeMarginSwitch: isNative ? 3 : 1,
+        // Cache bandwidth estimate
+        cacheLoadThreshold: 20,
       },
       manifest: {
         // Faster manifest parsing
         retryParameters: {
-          maxAttempts: 4,
-          baseDelay: 500,
-          backoffFactor: 2,
-          timeout: isNative ? 10000 : 20000,
-          fuzzFactor: 0.5,
+          maxAttempts: 5,
+          baseDelay: 300,
+          backoffFactor: 1.5,
+          timeout: isNative ? 8000 : 20000,
+          fuzzFactor: 0.3,
         },
         // Parse HLS faster
         hls: {
@@ -114,6 +202,8 @@ export function useNativeShakaPlayer({
           ignoreManifestProgramDateTimeForTypes: [],
           // Sequence mode for better compatibility
           useFullSegmentsForStartTime: isNative,
+          // Don't ignore text stream failures
+          ignoreTextStreamFailures: true,
         },
         // DASH optimizations
         dash: {
@@ -124,6 +214,10 @@ export function useNativeShakaPlayer({
         },
         // Default presentation delay
         defaultPresentationDelay: 0,
+        // Disable clock sync for VOD
+        disableAudio: false,
+        disableVideo: false,
+        disableText: false,
       },
       drm: {
         // DRM timeout adjustments for mobile
@@ -144,6 +238,7 @@ export function useNativeShakaPlayer({
 
     // iOS-specific optimizations
     if (platform === 'ios') {
+      logDebug('getNativeConfig', 'Applying iOS-specific optimizations');
       return {
         ...baseConfig,
         streaming: {
@@ -152,24 +247,32 @@ export function useNativeShakaPlayer({
           preferNativeHls: true,
           useNativeHlsOnSafari: true,
           // Smaller buffer for iOS memory constraints
-          bufferingGoal: 12,
+          bufferingGoal: Math.min(bufferGoal, 15),
           bufferBehind: 12,
+          // iOS is more sensitive to gaps
+          gapDetectionThreshold: 0.2,
+          smallGapLimit: 0.2,
         },
       };
     }
 
     // Android-specific optimizations
     if (platform === 'android') {
+      logDebug('getNativeConfig', 'Applying Android-specific optimizations');
       return {
         ...baseConfig,
         streaming: {
           ...baseConfig.streaming,
           // Android can handle larger buffers
-          bufferingGoal: 20,
-          bufferBehind: 20,
+          bufferingGoal: Math.max(bufferGoal, 25),
+          bufferBehind: 25,
           // Force gap jumping on Android for better recovery
           jumpLargeGaps: true,
-          stallSkip: 0.2,
+          stallSkip: 0.25,
+          // More aggressive stall recovery on Android
+          stallThreshold: 0.4,
+          // Larger prefetch for smoother playback
+          segmentPrefetchLimit: 4,
         },
         abr: {
           ...baseConfig.abr,
@@ -177,8 +280,10 @@ export function useNativeShakaPlayer({
           restrictions: {
             maxHeight: 1080,
             maxWidth: 1920,
-            maxBandwidth: 12000000,
+            maxBandwidth: networkQuality.effectiveType === '4g' ? 15000000 : baseConfig.abr.restrictions.maxBandwidth,
           },
+          // Slightly faster switching on Android
+          switchInterval: 5,
         },
       };
     }
@@ -188,20 +293,27 @@ export function useNativeShakaPlayer({
 
   // Initialize Shaka Player with native optimizations
   const initPlayer = useCallback(async () => {
-    if (!videoRef.current) return null;
+    if (!videoRef.current) {
+      logDebug('initPlayer', 'No video ref available');
+      return null;
+    }
 
     try {
+      logDebug('initPlayer', 'Starting initialization...', { platform, isNative });
+      
       // Install polyfills
       shaka.polyfill.installAll();
 
       if (!shaka.Player.isBrowserSupported()) {
         console.warn('Shaka Player not supported on this browser');
+        logDebug('initPlayer', 'Browser not supported');
         return null;
       }
 
       // Cleanup existing player
       if (shakaPlayerRef.current) {
         try {
+          logDebug('initPlayer', 'Cleaning up existing player');
           await shakaPlayerRef.current.unload();
           await shakaPlayerRef.current.detach();
           await shakaPlayerRef.current.destroy();
@@ -217,87 +329,144 @@ export function useNativeShakaPlayer({
       
       // Apply native-optimized configuration
       const config = getNativeConfig();
+      logDebug('initPlayer', 'Applying config:', {
+        bufferingGoal: config.streaming?.bufferingGoal,
+        rebufferingGoal: config.streaming?.rebufferingGoal,
+        defaultBandwidthEstimate: config.abr?.defaultBandwidthEstimate,
+        maxBandwidth: config.abr?.restrictions?.maxBandwidth,
+      });
       player.configure(config);
 
       // Set up event listeners
       player.addEventListener('error', (event: any) => {
         const error = event.detail;
-        console.error('Shaka error:', error.code, error.message);
+        console.error('Shaka error:', error.code, error.message, error);
+        logDebug('error', `Code: ${error.code}, Message: ${error.message}`, error.data);
         onError?.(new Error(`Shaka error ${error.code}: ${error.message}`));
       });
 
       player.addEventListener('adaptation', () => {
         const stats = player.getStats();
+        logDebug('adaptation', 'Quality changed:', {
+          width: stats.width,
+          height: stats.height,
+          bandwidth: Math.round(stats.estimatedBandwidth / 1000) + ' kbps',
+          bufferingTime: stats.bufferingTime,
+        });
         if (stats.estimatedBandwidth) {
           onBandwidthUpdate?.(stats.estimatedBandwidth);
         }
       });
 
       player.addEventListener('buffering', (event: any) => {
-        // Handle buffering state changes
-        if (isNative) {
-          console.log('Buffering:', event.buffering);
-        }
+        logDebug('buffering', event.buffering ? 'Started buffering' : 'Finished buffering');
       });
 
       player.addEventListener('stalldetected', () => {
         console.warn('Stall detected, attempting recovery');
+        logDebug('stalldetected', 'Attempting recovery...');
         // On native, try to recover from stalls
         if (isNative && videoRef.current) {
           const currentTime = videoRef.current.currentTime;
-          videoRef.current.currentTime = currentTime + 0.1;
+          // Skip forward slightly to recover
+          videoRef.current.currentTime = currentTime + 0.2;
+          // Also try to resume playback
+          setTimeout(() => {
+            videoRef.current?.play().catch(() => {});
+          }, 100);
         }
+      });
+
+      player.addEventListener('loading', () => {
+        logDebug('loading', 'Loading started');
+      });
+
+      player.addEventListener('loaded', () => {
+        const stats = player.getStats();
+        logDebug('loaded', 'Content loaded:', {
+          width: stats.width,
+          height: stats.height,
+          streamBandwidth: stats.streamBandwidth,
+        });
       });
 
       shakaPlayerRef.current = player;
       setIsInitialized(true);
+      logDebug('initPlayer', 'Initialization complete');
       
       return player;
     } catch (error) {
       console.error('Failed to initialize Shaka Player:', error);
+      logDebug('initPlayer', 'Initialization failed:', error);
       onError?.(error as Error);
       return null;
     }
-  }, [videoRef, getNativeConfig, onBandwidthUpdate, onError, isNative]);
+  }, [videoRef, getNativeConfig, onBandwidthUpdate, onError, isNative, platform]);
 
   // Load a video source
   const loadSource = useCallback(async (url: string, mimeType?: string) => {
     setIsLoading(true);
+    logDebug('loadSource', 'Loading source:', { url: url.substring(0, 100), mimeType });
     
     let player = shakaPlayerRef.current;
     
     if (!player) {
+      logDebug('loadSource', 'No player, initializing...');
       player = await initPlayer();
       if (!player) {
         setIsLoading(false);
+        logDebug('loadSource', 'Failed to initialize player');
         return false;
       }
     }
 
     try {
       // Unload previous content
+      logDebug('loadSource', 'Unloading previous content');
       await player.unload();
       
-      // Wait a bit for cleanup on native
+      // Wait a bit for cleanup on native - important for stability
       if (isNative) {
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
 
+      // Auto-detect mime type if not provided
+      const detectedType = detectSourceType(url);
+      let finalMimeType = mimeType;
+      if (!finalMimeType) {
+        if (detectedType === 'hls') {
+          finalMimeType = 'application/x-mpegURL';
+        } else if (detectedType === 'dash') {
+          finalMimeType = 'application/dash+xml';
+        }
+      }
+      
+      logDebug('loadSource', 'Loading with mime type:', finalMimeType || 'auto-detect');
+
       // Load new source
-      await player.load(url, undefined, mimeType);
+      const loadStartTime = Date.now();
+      await player.load(url, undefined, finalMimeType);
+      logDebug('loadSource', `Loaded in ${Date.now() - loadStartTime}ms`);
 
       // Get available tracks
       const variantTracks = player.getVariantTracks();
+      logDebug('loadSource', 'Available variant tracks:', variantTracks.length);
+      
       const qualities = [...new Set(variantTracks.map((t: any) => `${t.height}p`))]
+        .filter((q: string) => q !== 'undefinedp' && q !== 'nullp')
         .sort((a: string, b: string) => parseInt(b) - parseInt(a)) as string[];
+      
+      logDebug('loadSource', 'Available qualities:', qualities);
       onQualitiesLoaded?.(qualities);
 
       // Audio tracks
       const audioTracks = player.getAudioLanguagesAndRoles();
+      logDebug('loadSource', 'Audio tracks:', audioTracks);
       onAudioTracksLoaded?.(audioTracks);
 
       // Text tracks
       const textTracks = player.getTextLanguagesAndRoles();
+      logDebug('loadSource', 'Text tracks:', textTracks);
       onTextTracksLoaded?.(textTracks);
       player.setTextTrackVisibility(false);
 
@@ -305,8 +474,13 @@ export function useNativeShakaPlayer({
       onLoaded?.();
       
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load video source:', error);
+      logDebug('loadSource', 'Load failed:', {
+        code: error.code,
+        message: error.message,
+        data: error.data,
+      });
       setIsLoading(false);
       onError?.(error as Error);
       return false;
