@@ -224,7 +224,6 @@ const AdminMoviesAdd = () => {
           overview: formData.overview,
           release_date: formData.release_date,
           tmdb_id: formData.tmdb_id,
-          vote_average: formData.vote_average,
           content_type: "movie",
           access_type: formData.access_type,
           price: formData.price,
