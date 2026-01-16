@@ -28,10 +28,20 @@ serve(async (req) => {
     }
 
     // Get storage2 credentials from environment
-    const endpoint = Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT');
+    const rawEndpoint = Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT');
     const accessKeyId = Deno.env.get('IDRIVE_E2_STORAGE2_ACCESS_KEY');
     const secretAccessKey = Deno.env.get('IDRIVE_E2_STORAGE2_SECRET_KEY');
-    const region = Deno.env.get('IDRIVE_E2_STORAGE2_REGION') || 'ap-southeast-1';
+
+    const endpoint = rawEndpoint?.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+    const rawRegion = Deno.env.get('IDRIVE_E2_STORAGE2_REGION');
+    let region = (rawRegion || 'ap-southeast-1').trim();
+
+    // Guard against placeholder/invalid values causing AWS SDK hostname validation failures
+    if (!/^[a-z0-9-]+$/.test(region) || region.includes('PLACEHOLDER')) {
+      console.warn(`Invalid IDRIVE_E2_STORAGE2_REGION value, falling back to ap-southeast-1`);
+      region = 'ap-southeast-1';
+    }
 
     if (!endpoint || !accessKeyId || !secretAccessKey) {
       throw new Error('Storage2 credentials not configured');
