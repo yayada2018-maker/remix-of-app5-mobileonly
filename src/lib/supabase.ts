@@ -36,10 +36,12 @@ export interface VideoSource {
   id: string;
   episode_id?: string;
   content_id?: string;
+  media_id?: string;
   url: string;
   source_type: string;
   quality?: string;
   quality_urls?: Record<string, string>;
+  default_quality?: string;
   is_default?: boolean;
   name?: string;
   server_name?: string;
