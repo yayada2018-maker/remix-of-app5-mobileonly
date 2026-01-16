@@ -12,10 +12,19 @@ interface UploadRequest {
   bucket: string;
 }
 
+const sanitizeEndpointHost = (value: string | undefined | null) =>
+  value?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '') ?? '';
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+
+  // We'll include limited debug info in error responses to avoid “black box” 500s.
+  const debugEnv = {
+    envEndpoint: Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT') ?? null,
+    envRegion: Deno.env.get('IDRIVE_E2_STORAGE2_REGION') ?? null,
+  };
 
   try {
     const { imageUrl, fileName, bucket }: UploadRequest = await req.json();
@@ -28,23 +37,21 @@ serve(async (req) => {
     }
 
     // Get storage2 credentials from environment
-    const rawEndpoint = Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT');
+    const endpointHost = sanitizeEndpointHost(Deno.env.get('IDRIVE_E2_STORAGE2_ENDPOINT'));
     const accessKeyId = Deno.env.get('IDRIVE_E2_STORAGE2_ACCESS_KEY');
     const secretAccessKey = Deno.env.get('IDRIVE_E2_STORAGE2_SECRET_KEY');
 
-    const endpoint = rawEndpoint?.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-
-    // iDrive E2 bucket is in ap-southeast-1 for this project.
-    // (We intentionally do NOT rely on an env region here to avoid placeholder misconfigurations.)
+    // IMPORTANT: hardcode region to the bucket region used by this project.
+    // This prevents placeholder/invalid secrets from breaking the AWS SDK.
     const region = 'ap-southeast-1';
 
-    if (!endpoint || !accessKeyId || !secretAccessKey) {
+    if (!endpointHost || !accessKeyId || !secretAccessKey) {
       throw new Error('Storage2 credentials not configured');
     }
 
     // Create S3 client for storage2
     const s3Client = new S3Client({
-      endpoint: `https://${endpoint}`,
+      endpoint: `https://${endpointHost}`,
       region,
       credentials: {
         accessKeyId,
@@ -55,26 +62,28 @@ serve(async (req) => {
 
     // Check if image already exists
     try {
-      await s3Client.send(new HeadObjectCommand({
-        Bucket: bucket,
-        Key: fileName,
-      }));
-      
+      await s3Client.send(
+        new HeadObjectCommand({
+          Bucket: bucket,
+          Key: fileName,
+        })
+      );
+
       // Image already exists, return existing URL
-      const existingUrl = `https://${endpoint}/${bucket}/${fileName}`;
+      const existingUrl = `https://${endpointHost}/${bucket}/${fileName}`;
       console.log(`Image already exists: ${existingUrl}`);
       return new Response(
         JSON.stringify({ success: true, url: existingUrl, cached: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } catch (headError) {
+    } catch (_headError) {
       // Image doesn't exist, need to download and upload
       console.log(`Downloading image from: ${imageUrl}`);
     }
 
-    // Download image from TMDB
+    // Download image
     const imageResponse = await fetch(imageUrl);
-    
+
     if (!imageResponse.ok) {
       throw new Error(`Failed to download image: ${imageResponse.status}`);
     }
@@ -82,21 +91,23 @@ serve(async (req) => {
     const imageBuffer = await imageResponse.arrayBuffer();
     const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
 
-    // Upload to iDrive E2 storage2
-    await s3Client.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: fileName,
-      Body: new Uint8Array(imageBuffer),
-      ContentType: contentType,
-      CacheControl: 'public, max-age=31536000', // 1 year cache
-    }));
+    // Upload to iDrive E2
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: fileName,
+        Body: new Uint8Array(imageBuffer),
+        ContentType: contentType,
+        CacheControl: 'public, max-age=31536000',
+      })
+    );
 
-    const publicUrl = `https://${endpoint}/${bucket}/${fileName}`;
+    const publicUrl = `https://${endpointHost}/${bucket}/${fileName}`;
     console.log(`Uploaded image to: ${publicUrl}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         url: publicUrl,
         cached: false,
       }),
@@ -105,8 +116,16 @@ serve(async (req) => {
   } catch (error) {
     console.error('Upload error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({
+        success: false,
+        error: errorMessage,
+        debug: {
+          ...debugEnv,
+          usedRegion: 'ap-southeast-1',
+        },
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
