@@ -134,7 +134,7 @@ async function uploadImageToIdrive(
 ): Promise<string | null> {
   try {
     // Call the edge function to handle the upload
-    const { data, error } = await supabase.functions.invoke('upload-tmdb-image-v2', {
+    const { data, error } = await supabase.functions.invoke('upload-tmdb-image', {
       body: {
         imageUrl,
         fileName,
