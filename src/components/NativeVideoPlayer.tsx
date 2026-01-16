@@ -32,6 +32,7 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { NativeScreenProtection } from '@/utils/nativeScreenProtection';
 import { usePinchToZoom } from '@/hooks/usePinchToZoom';
 import { VideoSettingsMenu } from '@/components/VideoSettingsMenu';
+import { useNativeShakaPlayer } from '@/hooks/useNativeShakaPlayer';
 
 interface Episode {
   id: string;
@@ -74,13 +75,30 @@ interface NativeVideoPlayerProps {
 // Helpers
 const normalizeType = (rawType?: string, url?: string): "mp4" | "hls" | "iframe" => {
   const t = (rawType || "").toString().toLowerCase().trim();
+  
+  // Explicit type checks first
   if (t === "iframe" || t === "embed") return "iframe";
   if (t === "mp4") return "mp4";
+  if (t === "hls" || t === "m3u8") return "hls";
+  
+  // URL-based detection
   const u = (url || "").toLowerCase();
-  if (u.endsWith(".mp4")) return "mp4";
+  
+  // Check for MP4 files
+  if (u.endsWith(".mp4") || u.includes(".mp4?") || u.includes("mp4")) return "mp4";
+  
+  // Check for HLS streams
+  if (u.endsWith(".m3u8") || u.includes(".m3u8?") || u.includes("m3u8")) return "hls";
+  
+  // Check for embed/iframe sources
   if (u.includes("youtube.com") || u.includes("youtu.be") || u.includes("player.") || u.includes("embed")) return "iframe";
-  if (u.includes("vk.com/video") || u.includes("vk.ru/video")) return "iframe";
-  // For native apps, prefer iframe for HLS/DASH sources to avoid Shaka issues
+  if (u.includes("vk.com/video") || u.includes("vk.ru/video") || u.includes("video_ext.php")) return "iframe";
+  
+  // Default to mp4 for direct video URLs (not iframe)
+  if (u.startsWith("http") && !u.includes("embed") && !u.includes("player")) {
+    return "mp4";
+  }
+  
   return "iframe";
 };
 
@@ -366,10 +384,38 @@ const NativeVideoPlayer = ({
     }
   }, [currentTime, duration, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription, supportUsShownAt50, supportUsShownAt85]);
 
-  // Video event handlers (only for MP4 sources)
+  // Check if source is playable via Shaka (mp4 or hls)
+  const isPlayableSource = sourceType === 'mp4' || sourceType === 'hls';
+
+  // Initialize Shaka Player for HLS/MP4 sources
+  const {
+    loadSource: loadShakaSource,
+    cleanup: cleanupShaka,
+    isLoading: shakaLoading,
+    setQuality: setShakaQuality,
+    setAutoQuality: setShakaAutoQuality,
+  } = useNativeShakaPlayer({
+    videoRef,
+    autoQualityEnabled,
+    onQualitiesLoaded: (qualities) => {
+      if (sourceType === 'hls') {
+        setAvailableQualities(qualities);
+      }
+    },
+    onError: (error) => {
+      console.error('Shaka Player error:', error);
+      setIsLoading(false);
+    },
+    onLoaded: () => {
+      setIsLoading(false);
+      restoreProgress();
+    },
+  });
+
+  // Video event handlers (for MP4 and HLS sources)
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || sourceType !== 'mp4') return;
+    if (!video || !isPlayableSource) return;
 
     const handleTimeUpdate = () => setCurrentTime(video.currentTime);
     const handleDurationChange = () => setDuration(video.duration || 0);
@@ -406,21 +452,56 @@ const NativeVideoPlayer = ({
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [sourceType, saveProgress, onEnded]);
+  }, [isPlayableSource, saveProgress, onEnded]);
 
-  // Load MP4 source
+  // Load video source (MP4 or HLS)
   useEffect(() => {
-    if (!currentServer || sourceType !== 'mp4' || !videoRef.current || isLocked) return;
+    if (!currentServer || !isPlayableSource || !videoRef.current || isLocked) return;
     
-    setIsLoading(true);
-    videoRef.current.src = currentServer.url;
-    videoRef.current.load();
-    restoreProgress();
-    setIsLoading(false);
-  }, [currentServer, sourceType, isLocked, restoreProgress]);
+    const loadVideo = async () => {
+      setIsLoading(true);
+      
+      // Get the actual URL to use (considering quality_urls for MP4)
+      let videoUrl = currentServer.url;
+      
+      // Check if we have quality URLs for MP4
+      if (sourceType === 'mp4' && currentServer.quality_urls && typeof currentServer.quality_urls === 'object') {
+        const qualityUrls = currentServer.quality_urls as Record<string, string>;
+        // Use selected quality or default
+        const selectedQualityUrl = qualityUrls[currentQuality] || 
+                                   qualityUrls[currentServer.default_quality || ''] ||
+                                   Object.values(qualityUrls)[Object.values(qualityUrls).length - 1] ||
+                                   currentServer.url;
+        videoUrl = selectedQualityUrl || currentServer.url;
+      }
+      
+      console.log(`Loading ${sourceType} source:`, videoUrl);
+      
+      if (sourceType === 'hls') {
+        // Use Shaka Player for HLS
+        const success = await loadShakaSource(videoUrl, 'application/x-mpegURL');
+        if (!success) {
+          console.error('Failed to load HLS source with Shaka');
+        }
+      } else {
+        // For MP4, use direct src loading for better native compatibility
+        try {
+          await cleanupShaka();
+          videoRef.current.src = videoUrl;
+          videoRef.current.load();
+          restoreProgress();
+        } catch (error) {
+          console.error('Error loading MP4:', error);
+        }
+        setIsLoading(false);
+      }
+    };
+    
+    loadVideo();
+  }, [currentServer, isPlayableSource, isLocked, restoreProgress, currentQuality, sourceType, loadShakaSource, cleanupShaka]);
 
   const togglePlayPause = useCallback(() => {
-    if (!videoRef.current || sourceType !== 'mp4') return;
+    if (!videoRef.current || !isPlayableSource) return;
     
     // Check if support us overlay should show on first play attempt
     if (!hasAttemptedFirstPlay && !isPlaying && supportUsSettings.enabled && 
@@ -438,13 +519,13 @@ const NativeVideoPlayer = ({
     } else {
       videoRef.current.play().catch(console.error);
     }
-  }, [isPlaying, sourceType, hasAttemptedFirstPlay, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription]);
+  }, [isPlaying, isPlayableSource, hasAttemptedFirstPlay, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription]);
 
   const handleSeek = useCallback((value: number[]) => {
-    if (!videoRef.current || sourceType !== 'mp4') return;
+    if (!videoRef.current || !isPlayableSource) return;
     videoRef.current.currentTime = value[0];
     setCurrentTime(value[0]);
-  }, [sourceType]);
+  }, [isPlayableSource]);
 
   const toggleMute = useCallback(() => {
     if (!videoRef.current) return;
@@ -544,17 +625,19 @@ const NativeVideoPlayer = ({
     }, playerSettings.autoHideControlsMs || 3000);
   };
 
-  const handleServerChange = useCallback((source: VideoSource) => {
+  const handleServerChange = useCallback(async (source: VideoSource) => {
     if (currentServer?.id === source.id) return;
     
     // Set loading state before changing source
     setIsLoading(true);
     setIsPlaying(false);
     
-    // If we have a video element, save current time for potential resume
-    const savedTime = videoRef.current?.currentTime || 0;
+    // Clean up Shaka player if we were using HLS
+    if (sourceType === 'hls') {
+      await cleanupShaka();
+    }
     
-    // Reset video element first
+    // If we have a video element, reset it
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.removeAttribute('src');
@@ -566,13 +649,20 @@ const NativeVideoPlayer = ({
       setCurrentServer(source);
       setCurrentTime(0);
       setDuration(0);
+      setAvailableQualities([]);
+      setCurrentQuality('auto');
     }, 50);
-  }, [currentServer]);
+  }, [currentServer, sourceType, cleanupShaka]);
 
-  const handleEpisodeSelect = useCallback((episodeId: string) => {
+  const handleEpisodeSelect = useCallback(async (episodeId: string) => {
     // Set loading state immediately for smooth transition
     setIsLoading(true);
     setIsPlaying(false);
+    
+    // Clean up Shaka player if we were using HLS
+    if (sourceType === 'hls') {
+      await cleanupShaka();
+    }
     
     // Clear video element completely for clean transition
     if (videoRef.current) {
@@ -588,6 +678,8 @@ const NativeVideoPlayer = ({
     setTimeout(() => {
       setCurrentTime(0);
       setDuration(0);
+      setAvailableQualities([]);
+      setCurrentQuality('auto');
       onEpisodeSelect?.(episodeId);
       
       // Reset support us shown states for new episode
@@ -597,7 +689,7 @@ const NativeVideoPlayer = ({
       setHasAttemptedFirstPlay(false);
       setPendingPlayAfterOverlay(false);
     }, 100);
-  }, [onEpisodeSelect]);
+  }, [onEpisodeSelect, sourceType, cleanupShaka]);
 
   // Handle support us overlay skip/close - play video if pending
   const handleSupportUsClose = useCallback(() => {
@@ -613,7 +705,14 @@ const NativeVideoPlayer = ({
     setCurrentQuality(quality);
     setAutoQualityEnabled(false);
     
-    // Switch to the quality URL if quality_urls is available
+    // For HLS, use Shaka Player's quality switching
+    if (sourceType === 'hls') {
+      setShakaQuality(quality);
+      setShakaAutoQuality(false);
+      return;
+    }
+    
+    // For MP4, switch to the quality URL if quality_urls is available
     if (currentServer?.quality_urls && typeof currentServer.quality_urls === 'object') {
       const qualityUrls = currentServer.quality_urls as Record<string, string>;
       const newUrl = qualityUrls[quality];
@@ -628,11 +727,17 @@ const NativeVideoPlayer = ({
         }
       }
     }
-  }, [currentServer]);
+  }, [currentServer, sourceType, setShakaQuality, setShakaAutoQuality]);
 
   const handleAutoQualityToggle = useCallback(() => {
-    setAutoQualityEnabled(!autoQualityEnabled);
-  }, [autoQualityEnabled]);
+    const newValue = !autoQualityEnabled;
+    setAutoQualityEnabled(newValue);
+    
+    // For HLS, update Shaka ABR setting
+    if (sourceType === 'hls') {
+      setShakaAutoQuality(newValue);
+    }
+  }, [autoQualityEnabled, sourceType, setShakaAutoQuality]);
 
   const handlePlaybackSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
@@ -835,8 +940,8 @@ const NativeVideoPlayer = ({
           <AppLockOverlay type="web_only" contentBackdrop={contentBackdrop} />
         )}
 
-        {/* MP4 Video Element */}
-        {sourceType === 'mp4' && !isLocked && !accessLoading && !allSourcesWebOnly && (
+        {/* Video Element for MP4 and HLS sources */}
+        {isPlayableSource && !isLocked && !accessLoading && !allSourcesWebOnly && (
           <video
             ref={videoRef}
             className="w-full h-full"
@@ -849,7 +954,7 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Iframe Element (default for native) */}
+        {/* Iframe Element for embed sources */}
         {sourceType === 'iframe' && !isLocked && !accessLoading && !allSourcesWebOnly && (
           <iframe
             ref={iframeRef}
@@ -861,8 +966,8 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Screen Lock Overlay - Only for MP4/Shaka sources, NOT for embed/iframe */}
-        {playerSettings.showScreenLock && sourceType === 'mp4' && (
+        {/* Screen Lock Overlay - For MP4/HLS sources, NOT for embed/iframe */}
+        {playerSettings.showScreenLock && isPlayableSource && (
           <ScreenLockOverlay
             isLocked={isScreenLocked}
             onToggleLock={() => setIsScreenLocked(!isScreenLocked)}
@@ -964,8 +1069,8 @@ const NativeVideoPlayer = ({
           </div>
         )}
 
-        {/* MP4 Controls - Only for Shaka/mp4 player */}
-        {sourceType === 'mp4' && !isLocked && !accessLoading && !allSourcesWebOnly && !isScreenLocked && (
+        {/* Video Controls - For MP4/HLS sources */}
+        {isPlayableSource && !isLocked && !accessLoading && !allSourcesWebOnly && !isScreenLocked && (
           <>
             {/* Exit Fullscreen Button */}
             {isFullscreen && showControls && (
@@ -1029,8 +1134,8 @@ const NativeVideoPlayer = ({
                 </div>
                 
                 <div className="flex items-center gap-1">
-                  {/* Screen Lock Button - Before Episodes (only for MP4/Shaka) */}
-                  {playerSettings.showScreenLock && sourceType === 'mp4' && (
+                  {/* Screen Lock Button - Before Episodes (for MP4/HLS sources) */}
+                  {playerSettings.showScreenLock && isPlayableSource && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
