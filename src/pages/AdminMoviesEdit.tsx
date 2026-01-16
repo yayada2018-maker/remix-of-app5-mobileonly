@@ -22,7 +22,13 @@ interface VideoSource {
   quality?: string | null;
   language?: string | null;
   version?: string | null;
-  quality_urls?: any;
+  permission?: 'web_and_mobile' | 'web_only' | 'mobile_only';
+  quality_urls?: {
+    "480p"?: string;
+    "720p"?: string;
+    "1080p"?: string;
+  };
+  default_quality?: '480p' | '720p' | '1080p';
   is_default?: boolean | null;
   server_name?: string | null;
 }
@@ -127,7 +133,21 @@ const AdminMoviesEdit = () => {
 
   useEffect(() => {
     if (sources.length > 0) {
-      setVideoSources(sources);
+      const mappedSources: VideoSource[] = sources.map((source) => ({
+        id: source.id,
+        media_id: source.media_id,
+        source_type: source.source_type,
+        url: source.url || '',
+        quality: source.quality,
+        language: source.language,
+        version: source.version,
+        permission: (source.permission || 'web_and_mobile') as 'web_and_mobile' | 'web_only' | 'mobile_only',
+        quality_urls: (source.quality_urls || {}) as { "480p"?: string; "720p"?: string; "1080p"?: string },
+        default_quality: source.quality as '480p' | '720p' | '1080p' | undefined,
+        is_default: source.is_default,
+        server_name: source.server_name,
+      }));
+      setVideoSources(mappedSources);
     }
   }, [sources]);
 
@@ -247,10 +267,11 @@ const AdminMoviesEdit = () => {
               media_id: movieId,
               source_type: s.source_type,
               url: mainUrl || '',
-              quality: s.quality,
+              quality: s.source_type === "mp4" ? s.default_quality : s.quality,
               language: s.language,
               version: s.version,
-              quality_urls: s.quality_urls,
+              permission: s.permission,
+              quality_urls: s.source_type === "mp4" ? s.quality_urls : {},
               is_default: s.is_default,
               server_name: s.server_name,
             };
@@ -274,6 +295,7 @@ const AdminMoviesEdit = () => {
       {
         server_name: `Server ${videoSources.length + 1}`,
         version: "free",
+        permission: "web_and_mobile",
         source_type: "iframe",
         url: "",
         is_default: videoSources.length === 0,
@@ -291,8 +313,18 @@ const AdminMoviesEdit = () => {
     
     if (field === "source_type" && value === "mp4" && !updated[index].quality_urls) {
       updated[index].quality_urls = { "480p": "", "720p": "", "1080p": "" };
+      updated[index].default_quality = "720p";
     }
     
+    setVideoSources(updated);
+  };
+
+  const handleMp4QualityChange = (index: number, quality: "480p" | "720p" | "1080p", url: string) => {
+    const updated = [...videoSources];
+    if (!updated[index].quality_urls) {
+      updated[index].quality_urls = {};
+    }
+    updated[index].quality_urls![quality] = url;
     setVideoSources(updated);
   };
 
@@ -518,7 +550,11 @@ const AdminMoviesEdit = () => {
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Video Sources</CardTitle>
               <div className="flex gap-2">
-                <Button onClick={handleAddVideoSource} variant="outline" size="sm">
+                <Button 
+                  onClick={handleAddVideoSource} 
+                  size="sm"
+                  className="bg-black text-white hover:bg-gray-800"
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Source
                 </Button>
@@ -533,97 +569,175 @@ const AdminMoviesEdit = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-2">
+                {/* Table Header */}
+                <div className="grid grid-cols-[1.2fr,1fr,1.2fr,1fr,2fr,1fr,0.8fr,0.5fr] gap-2 p-3 bg-[hsl(142,76%,36%)] text-white rounded-lg font-medium text-sm">
+                  <div>Server Name</div>
+                  <div>Version</div>
+                  <div>Permission</div>
+                  <div>URL Type</div>
+                  <div>URL</div>
+                  <div>Quality</div>
+                  <div>Default</div>
+                  <div>Action</div>
+                </div>
+
+                {/* Table Rows or Empty State */}
                 {videoSources.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground border rounded-lg">
                     No video sources added yet. Click "Add Source" to add one.
                   </div>
                 ) : (
                   videoSources.map((source, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-3">
-                      <div className="grid gap-4 md:grid-cols-5">
-                        <div className="space-y-2">
-                          <Label>Server Name</Label>
+                    <div key={index} className="space-y-2">
+                      <div className="grid grid-cols-[1.2fr,1fr,1.2fr,1fr,2fr,1fr,0.8fr,0.5fr] gap-2 p-3 border rounded-lg items-center">
+                        {/* Server Name */}
+                        <Input
+                          value={source.server_name || ''}
+                          onChange={(e) => handleVideoSourceChange(index, "server_name", e.target.value)}
+                          placeholder="Server 1"
+                          className="h-9"
+                        />
+
+                        {/* Version */}
+                        <Select
+                          value={source.version || 'free'}
+                          onValueChange={(value) => handleVideoSourceChange(index, "version", value)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="free">Free</SelectItem>
+                            <SelectItem value="membership">Membership</SelectItem>
+                            <SelectItem value="purchase">Purchase</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Permission */}
+                        <Select
+                          value={source.permission || 'web_and_mobile'}
+                          onValueChange={(value) => handleVideoSourceChange(index, "permission", value)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="web_and_mobile">Web & Mobile</SelectItem>
+                            <SelectItem value="web_only">Web only</SelectItem>
+                            <SelectItem value="mobile_only">Mobile only</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* URL Type */}
+                        <Select
+                          value={source.source_type}
+                          onValueChange={(value) => handleVideoSourceChange(index, "source_type", value)}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="iframe">Embed</SelectItem>
+                            <SelectItem value="mp4">MP4</SelectItem>
+                            <SelectItem value="hls">HLS</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Main URL */}
+                        {source.source_type !== "mp4" ? (
                           <Input
-                            value={source.server_name || ''}
-                            onChange={(e) => handleVideoSourceChange(index, "server_name", e.target.value)}
-                            placeholder="Server 1"
+                            value={source.url}
+                            onChange={(e) => handleVideoSourceChange(index, "url", e.target.value)}
+                            placeholder="https://player.example.com"
+                            className="h-9"
+                          />
+                        ) : (
+                          <div className="text-sm text-muted-foreground">See below</div>
+                        )}
+
+                        {/* Quality Selector */}
+                        <Select
+                          value={source.source_type === "mp4" ? (source.default_quality || "720p") : (source.quality || "auto")}
+                          onValueChange={(value) => {
+                            if (source.source_type === "mp4") {
+                              handleVideoSourceChange(index, "default_quality", value);
+                            } else {
+                              handleVideoSourceChange(index, "quality", value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="auto">Auto</SelectItem>
+                            <SelectItem value="480p">480p</SelectItem>
+                            <SelectItem value="720p">720p</SelectItem>
+                            <SelectItem value="1080p">1080p</SelectItem>
+                            <SelectItem value="4k">4K</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {/* Default Checkbox */}
+                        <div className="flex justify-center">
+                          <input
+                            type="checkbox"
+                            checked={source.is_default || false}
+                            onChange={() => handleDefaultChange(index)}
+                            className="w-5 h-5 accent-blue-500 cursor-pointer"
                           />
                         </div>
 
-                        <div className="space-y-2">
-                          <Label>Type</Label>
-                          <Select
-                            value={source.source_type}
-                            onValueChange={(value) => handleVideoSourceChange(index, "source_type", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="iframe">Iframe</SelectItem>
-                              <SelectItem value="mp4">MP4</SelectItem>
-                              <SelectItem value="hls">HLS</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {/* Delete Button */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveVideoSource(index)}
+                          className="h-9 w-9"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
 
-                        <div className="space-y-2">
-                          <Label>Version</Label>
-                          <Select
-                            value={source.version || 'free'}
-                            onValueChange={(value) => handleVideoSourceChange(index, "version", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="free">Free</SelectItem>
-                              <SelectItem value="premium">Premium</SelectItem>
-                              <SelectItem value="vip">VIP</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Language</Label>
-                          <Input
-                            value={source.language || ''}
-                            onChange={(e) => handleVideoSourceChange(index, "language", e.target.value)}
-                            placeholder="English"
-                          />
-                        </div>
-
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1 space-y-2">
-                            <Label>Default</Label>
-                            <div className="flex items-center h-10">
-                              <input
-                                type="checkbox"
-                                checked={source.is_default || false}
-                                onChange={() => handleDefaultChange(index)}
-                                className="w-5 h-5"
+                      {/* Additional Quality URLs for MP4 */}
+                      {source.source_type === "mp4" && (
+                        <div className="ml-4 p-4 border-l-4 border-blue-200 bg-muted/30 rounded space-y-3">
+                          <div className="text-sm font-medium text-muted-foreground mb-2">
+                            Additional Quality URLs:
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Label className="w-16 text-sm">480p:</Label>
+                              <Input
+                                value={source.quality_urls?.["480p"] || ""}
+                                onChange={(e) => handleMp4QualityChange(index, "480p", e.target.value)}
+                                placeholder="https://example.com/video/480p.mp4"
+                                className="flex-1"
+                              />
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Label className="w-16 text-sm">720p:</Label>
+                              <Input
+                                value={source.quality_urls?.["720p"] || ""}
+                                onChange={(e) => handleMp4QualityChange(index, "720p", e.target.value)}
+                                placeholder="https://example.com/video/720p.mp4"
+                                className="flex-1"
+                              />
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Label className="w-16 text-sm">1080p:</Label>
+                              <Input
+                                value={source.quality_urls?.["1080p"] || ""}
+                                onChange={(e) => handleMp4QualityChange(index, "1080p", e.target.value)}
+                                placeholder="https://example.com/video/1080p.mp4"
+                                className="flex-1"
                               />
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveVideoSource(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
                         </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>URL</Label>
-                        <Input
-                          value={source.url}
-                          onChange={(e) => handleVideoSourceChange(index, "url", e.target.value)}
-                          placeholder="https://..."
-                        />
-                      </div>
+                      )}
                     </div>
                   ))
                 )}
