@@ -748,6 +748,15 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
         
         <SocialShareMeta title={content.title} description={content.overview || ''} image={content.backdrop_path || content.poster_path} type={contentType === 'movie' ? 'video.movie' : 'video.tv_show'} />
         <div className="flex flex-col relative z-10">
+          {/* Ad Slot: Above Player - uses TOP_CENTER position */}
+          {!isVideoFullscreen && (
+            <NativeBannerAdSlot 
+              placement="watch_top_banner" 
+              position="top"
+              pageLocation="watch"
+            />
+          )}
+          
           {/* Video Player */}
           <div className={`bg-black sticky top-[env(safe-area-inset-top)] z-50 ${isVideoFullscreen ? 'fixed inset-0 z-[9999] !top-0 !pt-0' : ''}`}>
             {videoPlayerElement}
@@ -804,11 +813,11 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
                 ) : null}
               </div>
 
-              {/* Ad Slot: Between Cast & Tabs */}
+              {/* Ad Slot: Between Cast & Tabs - uses BOTTOM_CENTER since AdMob can't render inline */}
               <div className="px-4 py-2">
                 <NativeBannerAdSlot 
                   placement="watch_cast_tabs_banner" 
-                  position="inline"
+                  position="bottom"
                   pageLocation="watch"
                   className="rounded-lg"
                 />
