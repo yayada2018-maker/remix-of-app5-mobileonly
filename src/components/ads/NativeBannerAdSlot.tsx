@@ -52,12 +52,46 @@ interface AdMobPlugin {
   showRewardVideoAd?: () => Promise<{ type: string; amount: number }>;
 }
 
-// Get AdMob plugin
+// Debug logger for AdMob
+const logAdMob = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
+  const prefix = '[AdMob-Debug]';
+  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+  const fullMessage = `${prefix} [${timestamp}] ${message}`;
+  
+  if (data !== undefined) {
+    console[level](fullMessage, JSON.stringify(data, null, 2));
+  } else {
+    console[level](fullMessage);
+  }
+};
+
+// Get AdMob plugin with detailed logging
 const getAdMobPlugin = (): AdMobPlugin | null => {
   try {
-    const AdMob = (window as any).Capacitor?.Plugins?.AdMob || (window as any).AdMob;
+    const capacitorPlugins = (window as any).Capacitor?.Plugins;
+    const directAdMob = (window as any).AdMob;
+    
+    logAdMob('info', 'Checking AdMob plugin availability...', {
+      hasCapacitor: !!(window as any).Capacitor,
+      hasCapacitorPlugins: !!capacitorPlugins,
+      hasAdMobInPlugins: !!capacitorPlugins?.AdMob,
+      hasDirectAdMob: !!directAdMob,
+      platform: (window as any).Capacitor?.getPlatform?.() || 'unknown'
+    });
+    
+    const AdMob = capacitorPlugins?.AdMob || directAdMob;
+    
+    if (AdMob) {
+      logAdMob('info', 'AdMob plugin FOUND', {
+        methods: Object.keys(AdMob).filter(k => typeof AdMob[k] === 'function')
+      });
+    } else {
+      logAdMob('warn', 'AdMob plugin NOT FOUND - ensure @capacitor-community/admob is installed and synced');
+    }
+    
     return AdMob || null;
-  } catch {
+  } catch (error) {
+    logAdMob('error', 'Error getting AdMob plugin', { error: String(error) });
     return null;
   }
 };
@@ -95,11 +129,21 @@ export function NativeBannerAdSlot({
   // Check if native platform
   useEffect(() => {
     const native = Capacitor.isNativePlatform();
+    const platform = Capacitor.getPlatform();
+    
+    logAdMob('info', `Platform check for placement: ${placement}`, {
+      isNative: native,
+      platform: platform,
+      userAgent: navigator.userAgent.substring(0, 100)
+    });
+    
     setIsNative(native);
     
     if (native) {
+      logAdMob('info', `Fetching native ad config for: ${placement}`);
       fetchAdConfig();
     } else {
+      logAdMob('info', `Non-native platform, fetching web ad for: ${placement}`);
       fetchWebAd();
     }
   }, [placement]);
@@ -128,6 +172,12 @@ export function NativeBannerAdSlot({
     try {
       const platform = Capacitor.getPlatform();
       
+      logAdMob('info', `Querying app_ads table`, {
+        placement,
+        platform,
+        query: `is_active=true AND placement=${placement} AND (platform=${platform} OR platform=both)`
+      });
+      
       // Fetch ad for this placement - any ad type
       const { data: adsData, error: adsError } = await supabase
         .from('app_ads')
@@ -140,15 +190,23 @@ export function NativeBannerAdSlot({
         .maybeSingle();
 
       if (adsError) {
-        console.error('[NativeAdSlot] Error fetching ad:', adsError);
+        logAdMob('error', 'Database query error for app_ads', {
+          error: adsError.message,
+          code: adsError.code,
+          details: adsError.details
+        });
       }
 
       // Fetch global settings
-      const { data: settingsData } = await supabase
+      const { data: settingsData, error: settingsError } = await supabase
         .from('app_ad_settings')
         .select('*')
         .eq('setting_key', 'global_settings')
         .maybeSingle();
+
+      if (settingsError) {
+        logAdMob('warn', 'Could not fetch global settings', { error: settingsError.message });
+      }
 
       const rawSettings = settingsData?.setting_value as Record<string, unknown> | null;
       const settings: AdMobSettings = {
@@ -156,21 +214,40 @@ export function NativeBannerAdSlot({
         test_mode: (rawSettings?.test_mode as boolean) ?? true,
       };
       
+      logAdMob('info', 'Ad config fetch results', {
+        placement,
+        foundAd: !!adsData,
+        adName: adsData?.name || 'N/A',
+        adType: adsData?.ad_type || 'N/A',
+        adUnitId: adsData?.ad_unit_id ? `${adsData.ad_unit_id.substring(0, 25)}...` : 'N/A',
+        adPlatform: adsData?.platform || 'N/A',
+        isActive: adsData?.is_active,
+        isTestMode: adsData?.is_test_mode,
+        globalEnabled: settings.enabled,
+        globalTestMode: settings.test_mode
+      });
+      
       if (adsData && settings.enabled) {
         setAdConfig({ ad: adsData, settings });
-        console.log('[NativeAdSlot] Loaded config for placement:', placement, {
+        logAdMob('info', `✅ Ad config loaded successfully for: ${placement}`, {
           name: adsData.name,
           type: adsData.ad_type,
-          unitId: adsData.ad_unit_id?.substring(0, 20) + '...',
+          unitId: adsData.ad_unit_id,
           testMode: settings.test_mode || adsData.is_test_mode
         });
       } else {
-        console.log('[NativeAdSlot] No active ad found for placement:', placement, 'Trying web fallback...');
+        logAdMob('warn', `❌ No active ad found for placement: ${placement}`, {
+          reason: !adsData ? 'No matching ad in database' : 'Global ads disabled',
+          settingsEnabled: settings.enabled
+        });
         // Try fetching web ad as fallback
         await fetchWebAd();
       }
     } catch (error) {
-      console.error('[NativeAdSlot] Error fetching config:', error);
+      logAdMob('error', 'Exception fetching ad config', { 
+        error: String(error),
+        placement 
+      });
       setAdError('Failed to load ad configuration');
       await fetchWebAd();
     } finally {
@@ -203,66 +280,108 @@ export function NativeBannerAdSlot({
 
   // Show native AdMob ad based on type
   const showAd = useCallback(async () => {
-    if (!adConfig || !isInView) return;
+    logAdMob('info', `showAd called for: ${placement}`, {
+      hasConfig: !!adConfig,
+      isInView,
+      isFullscreen,
+      hideInFullscreen,
+      bannerAlreadyShown: bannerShown
+    });
+    
+    if (!adConfig) {
+      logAdMob('warn', `Cannot show ad - no config loaded for: ${placement}`);
+      return;
+    }
+    
+    if (!isInView) {
+      logAdMob('info', `Skipping ad - not in view: ${placement}`);
+      return;
+    }
     
     // Don't show if in fullscreen mode
     if (hideInFullscreen && isFullscreen) {
-      console.log('[NativeAdSlot] Skipping - fullscreen active');
+      logAdMob('info', `Skipping ad - fullscreen active: ${placement}`);
       return;
     }
 
     const AdMob = getAdMobPlugin();
     if (!AdMob) {
-      console.log('[NativeAdSlot] AdMob plugin not available - native ads require @capacitor-community/admob');
+      logAdMob('error', `❌ AdMob plugin NOT available - cannot show ads`, {
+        placement,
+        tip: 'Ensure @capacitor-community/admob is installed, run npx cap sync, and test on real device'
+      });
       return;
     }
 
     const { ad, settings } = adConfig;
     const useTestMode = settings.test_mode || ad.is_test_mode;
 
+    logAdMob('info', `Attempting to show ${ad.ad_type} ad`, {
+      placement,
+      adName: ad.name,
+      adUnitId: ad.ad_unit_id,
+      testMode: useTestMode,
+      position
+    });
+
     try {
       switch (ad.ad_type) {
         case 'banner':
         case 'native':
-          if (bannerShown) return;
+          if (bannerShown) {
+            logAdMob('info', `Banner already shown for: ${placement}`);
+            return;
+          }
           
-          const adPosition = position === 'top' ? 'TOP_CENTER' : 
-                            position === 'bottom' ? 'BOTTOM_CENTER' : 'BOTTOM_CENTER';
+          const adPosition: 'TOP_CENTER' | 'BOTTOM_CENTER' = position === 'top' ? 'TOP_CENTER' : 'BOTTOM_CENTER';
           
           // Add margin for safe area (status bar at top, navigation at bottom)
           const safeAreaMargin = position === 'top' ? 24 : 0;
 
-          await AdMob.showBanner({
+          const bannerOptions = {
             adId: ad.ad_unit_id,
             adSize: 'ADAPTIVE_BANNER',
             position: adPosition,
             margin: safeAreaMargin,
             isTesting: useTestMode,
-          });
+          };
+          
+          logAdMob('info', `Calling AdMob.showBanner()`, bannerOptions);
+          
+          await AdMob.showBanner(bannerOptions);
 
           setBannerShown(true);
-          console.log('[NativeAdSlot] Banner shown for placement:', placement);
+          logAdMob('info', `✅ Banner SHOWN successfully for: ${placement}`, {
+            position: adPosition,
+            margin: safeAreaMargin
+          });
           break;
 
         case 'interstitial':
           if (AdMob.prepareInterstitial && AdMob.showInterstitial) {
+            logAdMob('info', `Preparing interstitial for: ${placement}`);
             await AdMob.prepareInterstitial({
               adId: ad.ad_unit_id,
               isTesting: useTestMode,
             });
+            logAdMob('info', `Showing interstitial for: ${placement}`);
             await AdMob.showInterstitial();
-            console.log('[NativeAdSlot] Interstitial shown for placement:', placement);
+            logAdMob('info', `✅ Interstitial SHOWN for: ${placement}`);
+          } else {
+            logAdMob('error', `Interstitial methods not available on AdMob plugin`);
           }
           break;
 
         case 'rewarded':
           if (AdMob.prepareRewardVideoAd && AdMob.showRewardVideoAd) {
+            logAdMob('info', `Preparing rewarded ad for: ${placement}`);
             await AdMob.prepareRewardVideoAd({
               adId: ad.ad_unit_id,
               isTesting: useTestMode,
             });
+            logAdMob('info', `Showing rewarded ad for: ${placement}`);
             const result = await AdMob.showRewardVideoAd();
-            console.log('[NativeAdSlot] Rewarded ad completed:', result);
+            logAdMob('info', `✅ Rewarded ad completed for: ${placement}`, result);
             
             if (onRewardEarned) {
               onRewardEarned(
@@ -270,19 +389,25 @@ export function NativeBannerAdSlot({
                 result.type || ad.reward_type || 'coins'
               );
             }
+          } else {
+            logAdMob('error', `Rewarded ad methods not available on AdMob plugin`);
           }
           break;
 
         case 'app_open':
-          // App open ads typically shown via different mechanism
-          console.log('[NativeAdSlot] App open ad - should be triggered on app resume');
+          logAdMob('info', `App open ad - should be triggered on app resume: ${placement}`);
           break;
 
         default:
-          console.log('[NativeAdSlot] Unknown ad type:', ad.ad_type);
+          logAdMob('warn', `Unknown ad type: ${ad.ad_type} for placement: ${placement}`);
       }
-    } catch (error) {
-      console.error('[NativeAdSlot] Failed to show ad:', error);
+    } catch (error: any) {
+      logAdMob('error', `❌ Failed to show ${ad.ad_type} ad`, {
+        placement,
+        error: error?.message || String(error),
+        errorCode: error?.code,
+        stack: error?.stack?.substring(0, 200)
+      });
       setAdError('Failed to display ad');
     }
   }, [adConfig, bannerShown, isInView, placement, position, isFullscreen, hideInFullscreen, onRewardEarned]);
