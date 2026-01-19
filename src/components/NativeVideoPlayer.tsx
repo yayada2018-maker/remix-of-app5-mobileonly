@@ -563,17 +563,34 @@ const NativeVideoPlayer = ({
       
       // Get the actual URL to use (considering quality_urls for MP4)
       let videoUrl = currentServer.url;
-      
+
       // Check if we have quality URLs for MP4
       if (sourceType === 'mp4' && currentServer.quality_urls && typeof currentServer.quality_urls === 'object') {
         const qualityUrls = currentServer.quality_urls as Record<string, string>;
-        // Use selected quality or default
-        const selectedQualityUrl = qualityUrls[currentQuality] || 
-                                   qualityUrls[currentServer.default_quality || ''] ||
-                                   Object.values(qualityUrls)[Object.values(qualityUrls).length - 1] ||
-                                   currentServer.url;
-        videoUrl = selectedQualityUrl || currentServer.url;
-        logNativeDebug('loadVideo', 'Using quality URL:', { quality: currentQuality, url: videoUrl?.substring(0, 80) });
+
+        const getResolution = (q: string) => parseInt(q.replace(/\D/g, '')) || 0;
+        const sortedQualities = Object.keys(qualityUrls).sort((a, b) => getResolution(a) - getResolution(b));
+
+        // Native default: prefer 480p (or the lowest available) when in Auto mode.
+        const defaultAutoQuality = sortedQualities.find((q) => q.includes('480')) || sortedQualities[0];
+
+        const desiredQuality = autoQualityEnabled
+          ? defaultAutoQuality
+          : (currentQuality && currentQuality !== 'auto' ? currentQuality : defaultAutoQuality);
+
+        const finalQuality = desiredQuality && qualityUrls[desiredQuality] ? desiredQuality : defaultAutoQuality;
+
+        if (finalQuality && currentQuality !== finalQuality) {
+          // Keep UI label in sync immediately so we don't briefly show 1080p.
+          setCurrentQuality(finalQuality);
+        }
+
+        videoUrl = (finalQuality && qualityUrls[finalQuality]) || currentServer.url;
+        logNativeDebug('loadVideo', 'Using MP4 quality URL:', {
+          autoQualityEnabled,
+          quality: finalQuality,
+          url: videoUrl?.substring(0, 80),
+        });
       }
       
       logNativeDebug('loadVideo', `Loading ${sourceType} source:`, {
