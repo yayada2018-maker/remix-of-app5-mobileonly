@@ -262,24 +262,67 @@ const NativeVideoPlayer = ({
   }, [videoSources]);
 
   const allSourcesWebOnly = useMemo(() => {
-    return videoSources.length > 0 && videoSources.every(s => s.permission === 'web_only');
+    return videoSources.length > 0 && videoSources.every(source => source.permission === 'web_only');
   }, [videoSources]);
 
-  // Track the current episode to detect episode changes
   const prevEpisodeIdRef = useRef<string | undefined>(currentEpisodeId);
+  const hadSourcesRef = useRef<boolean>(false);
+  const pendingEpisodeIdRef = useRef<string | undefined>(undefined);
 
-  // Set initial server when sources change or episode changes
+  // Track when sources are cleared - cleanup phase
+  useEffect(() => {
+    if (allAvailableSources.length === 0 && hadSourcesRef.current) {
+      logNativeDebug('sourceCleanup', 'Sources cleared, cleaning up player', { currentEpisodeId });
+      // Sources were just cleared - likely switching episodes
+      // Store the expected episode ID
+      pendingEpisodeIdRef.current = currentEpisodeId;
+      
+      // Clear current server to force reload when new sources arrive
+      setCurrentServer(null);
+      
+      // Reset player state
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      setIsLoading(true);
+      
+      // Pause video element
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.removeAttribute('src');
+        videoRef.current.load();
+      }
+    }
+    hadSourcesRef.current = allAvailableSources.length > 0;
+  }, [allAvailableSources.length, currentEpisodeId]);
+
+  // Set server when sources become available (after cleanup or initial load)
   useEffect(() => {
     // Detect if episode changed
     const episodeChanged = prevEpisodeIdRef.current !== currentEpisodeId;
+    const sourcesJustArrived = allAvailableSources.length > 0 && !currentServer;
     
-    if (allAvailableSources.length > 0 && (!currentServer || episodeChanged)) {
+    logNativeDebug('sourceDetection', 'Checking sources', {
+      sourcesCount: allAvailableSources.length,
+      hasServer: !!currentServer,
+      episodeChanged,
+      currentEpisodeId,
+      prevEpisodeId: prevEpisodeIdRef.current,
+      pendingEpisodeId: pendingEpisodeIdRef.current,
+    });
+    
+    if (allAvailableSources.length > 0 && (sourcesJustArrived || episodeChanged)) {
       const defaultSource = allAvailableSources.find(s => s.is_default) || allAvailableSources[0];
+      logNativeDebug('sourceDetection', 'Setting new server', {
+        serverName: defaultSource?.server_name,
+        url: defaultSource?.url?.substring(0, 80),
+        sourceType: defaultSource?.source_type,
+      });
       setCurrentServer(defaultSource);
       
-      // Reset player state when episode changes
-      if (episodeChanged) {
-        setIsPlaying(false);
+      // Reset player state when episode changes or sources arrive fresh
+      if (episodeChanged || sourcesJustArrived) {
+        setIsPlaying(false); // Don't auto-play
         setCurrentTime(0);
         setDuration(0);
         setHasAttemptedFirstPlay(false);
@@ -287,8 +330,13 @@ const NativeVideoPlayer = ({
         setSupportUsShownAt50(false);
         setSupportUsShownAt85(false);
         setPendingPlayAfterOverlay(false);
+        setAvailableQualities([]);
+        setCurrentQuality('auto');
         
-        // Clear video element
+        // Clear pending episode
+        pendingEpisodeIdRef.current = undefined;
+        
+        // Clear video element for clean load
         if (videoRef.current) {
           videoRef.current.pause();
         }
@@ -440,6 +488,17 @@ const NativeVideoPlayer = ({
       restoreProgress();
     },
   });
+
+  // Cleanup Shaka when server is cleared (episode switching)
+  useEffect(() => {
+    if (!currentServer && hadSourcesRef.current === false) {
+      // Sources were cleared and server is null - cleanup Shaka
+      logNativeDebug('shakaCleanup', 'Cleaning up Shaka player during episode switch');
+      cleanupShaka().catch(err => {
+        logNativeDebug('shakaCleanup', 'Cleanup error (non-critical):', err);
+      });
+    }
+  }, [currentServer, cleanupShaka]);
 
   // Video event handlers (for MP4 and HLS sources)
   useEffect(() => {
