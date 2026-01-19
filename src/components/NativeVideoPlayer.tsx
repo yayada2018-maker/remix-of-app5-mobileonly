@@ -356,9 +356,13 @@ const NativeVideoPlayer = ({
         return getResolution(a) - getResolution(b);
       });
       setAvailableQualities(sortedQualities);
-      // Set default quality if not set
+      // Set default quality to 480p (lowest) for better mobile compatibility
+      // User can switch to higher quality via gear icon
       if (!currentQuality || currentQuality === 'auto') {
-        setCurrentQuality(sortedQualities[sortedQualities.length - 1] || 'auto');
+        // Prefer 480p if available, otherwise use lowest quality
+        const preferredQuality = sortedQualities.find(q => q.includes('480')) || sortedQualities[0];
+        logNativeDebug('qualitySelect', 'Setting default quality to:', preferredQuality);
+        setCurrentQuality(preferredQuality || 'auto');
       }
     } else if (currentServer?.quality) {
       // Fallback to single quality from source
