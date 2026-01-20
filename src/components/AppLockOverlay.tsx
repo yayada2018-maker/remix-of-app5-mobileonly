@@ -53,7 +53,7 @@ const AppLockOverlay: React.FC<AppLockOverlayProps> = ({ type, contentBackdrop }
       <div className="absolute inset-0 bg-black/90" />
       
       {/* Content container - Desktop horizontal layout with QR visible */}
-      <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 p-6 w-full max-w-4xl mx-auto animate-scale-in">
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-center gap-6 p-6 w-auto mx-auto animate-scale-in">
         
         {/* Left side - Logo, Title, Messages, Buttons */}
         <div className="flex flex-col items-center md:items-start gap-5 flex-1">
