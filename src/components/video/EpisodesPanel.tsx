@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { X, Play, Check, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Play, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -99,9 +99,10 @@ export const EpisodesPanel = ({
         "bottom-0 left-0 right-0 h-auto"
       )}
       style={{
-        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
+        // Frosted glass effect
+        background: 'rgba(255, 255, 255, 0.05)',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
       }}
     >
       {/* Header */}
@@ -176,10 +177,10 @@ export const EpisodesPanel = ({
 
       {/* Episodes - Always horizontal scroll for both portrait and landscape */}
       <div className="relative px-4 py-3">
-        {/* Left Arrow */}
+        {/* Left Arrow - Rounded with frosted glass */}
         <button 
           onClick={scrollLeft}
-          className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10 shadow-lg"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -187,7 +188,7 @@ export const EpisodesPanel = ({
         {/* Horizontal scroll container */}
         <div 
           ref={scrollContainerRef}
-          className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide scroll-smooth px-8"
+          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth px-10"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {filteredEpisodes.map((episode) => {
@@ -207,12 +208,12 @@ export const EpisodesPanel = ({
                   onClose();
                 }}
                 className={cn(
-                  "relative group flex-shrink-0 rounded-lg overflow-hidden transition-all duration-200",
-                  // Smaller cards on portrait, larger on landscape
-                  isFullscreenLandscape ? "w-40 aspect-video" : "w-28 sm:w-32 aspect-video",
+                  "relative group flex-shrink-0 rounded-xl overflow-hidden transition-all duration-200",
+                  // Slightly larger cards
+                  isFullscreenLandscape ? "w-44 aspect-video" : "w-32 sm:w-36 aspect-video",
                   isCurrentEpisode 
-                    ? "ring-2 ring-cyan-400" 
-                    : "hover:ring-2 hover:ring-white/30"
+                    ? "ring-2 ring-cyan-400 shadow-lg shadow-cyan-400/30" 
+                    : "hover:ring-2 hover:ring-white/40"
                 )}
               >
                 {/* Thumbnail */}
@@ -230,16 +231,16 @@ export const EpisodesPanel = ({
                     <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
                   )}
                   
-                  {/* Word-Art Style Episode Number - Bottom Left */}
-                  <div className="absolute bottom-1 left-2 pointer-events-none">
+                  {/* Word-Art Style Episode Number - Larger */}
+                  <div className="absolute bottom-1.5 left-2.5 pointer-events-none">
                     <span 
                       className={cn(
-                        "text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]",
-                        isFullscreenLandscape ? "text-4xl" : "text-2xl sm:text-3xl"
+                        "text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]",
+                        isFullscreenLandscape ? "text-5xl" : "text-3xl sm:text-4xl"
                       )}
                       style={{
-                        WebkitTextStroke: '1px rgba(255,255,255,0.3)',
-                        textShadow: '2px 2px 0 rgba(0,0,0,0.5), -1px -1px 0 rgba(255,255,255,0.1)',
+                        WebkitTextStroke: '1.5px rgba(255,255,255,0.3)',
+                        textShadow: '3px 3px 0 rgba(0,0,0,0.6), -1px -1px 0 rgba(255,255,255,0.15)',
                         fontFamily: 'system-ui, -apple-system, sans-serif',
                         fontStyle: 'italic',
                       }}
@@ -250,20 +251,20 @@ export const EpisodesPanel = ({
                   
                   {/* Play overlay on hover */}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Play className={cn("text-white", isFullscreenLandscape ? "h-8 w-8" : "h-6 w-6")} fill="white" />
+                    <Play className={cn("text-white", isFullscreenLandscape ? "h-9 w-9" : "h-7 w-7")} fill="white" />
                   </div>
 
-                  {/* Currently playing indicator */}
+                  {/* "Now" badge on current episode - Enhanced styling */}
                   {isCurrentEpisode && (
-                    <div className="absolute top-1 left-1 bg-cyan-500 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                      <Check className="h-2.5 w-2.5" />
+                    <div className="absolute top-1.5 left-1.5 bg-cyan-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                       Now
                     </div>
                   )}
 
                   {/* Version badge */}
                   {episode.version && (
-                    <div className="absolute bottom-1 right-1 bg-primary/80 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
+                    <div className="absolute bottom-1.5 right-1.5 bg-primary/80 text-primary-foreground text-[10px] px-1.5 py-0.5 rounded">
                       {episode.version}
                     </div>
                   )}
@@ -273,10 +274,10 @@ export const EpisodesPanel = ({
           })}
         </div>
 
-        {/* Right Arrow */}
+        {/* Right Arrow - Rounded with frosted glass */}
         <button 
           onClick={scrollRight}
-          className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all"
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-9 h-9 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all border border-white/10 shadow-lg"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
