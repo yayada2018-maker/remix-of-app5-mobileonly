@@ -171,25 +171,25 @@ const Auth = () => {
 
             <div className="space-y-3">
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 z-10" />
                 <Input
                   type="email"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 h-11 bg-transparent border-white/30 rounded-lg placeholder:text-foreground/50"
+                  className="pl-10 h-11 bg-white/10 backdrop-blur-sm border-white/20 rounded-lg placeholder:text-white/50 text-white"
                 />
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 z-10" />
                 <Input
                   type="password"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-10 h-11 bg-transparent border-white/30 rounded-lg placeholder:text-foreground/50"
+                  className="pl-10 h-11 bg-white/10 backdrop-blur-sm border-white/20 rounded-lg placeholder:text-white/50 text-white"
                 />
               </div>
             </div>
@@ -310,25 +310,25 @@ const Auth = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-3">
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 z-10" />
                 <Input
                   type="email"
                   placeholder="Email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-transparent border-white/30 rounded-lg placeholder:text-foreground/50"
+                  className="pl-10 h-12 bg-white/10 backdrop-blur-sm border-white/20 rounded-lg placeholder:text-white/50 text-white"
                 />
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/60 z-10" />
                 <Input
                   type="password"
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pl-10 h-12 bg-transparent border-white/30 rounded-lg placeholder:text-foreground/50"
+                  className="pl-10 h-12 bg-white/10 backdrop-blur-sm border-white/20 rounded-lg placeholder:text-white/50 text-white"
                 />
               </div>
             </div>
