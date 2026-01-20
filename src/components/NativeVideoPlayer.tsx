@@ -33,6 +33,8 @@ import { NativeScreenProtection } from '@/utils/nativeScreenProtection';
 import { usePinchToZoom } from '@/hooks/usePinchToZoom';
 import { VideoSettingsMenu } from '@/components/VideoSettingsMenu';
 import { useNativeShakaPlayer, detectSourceType } from '@/hooks/useNativeShakaPlayer';
+import { useSiteSettings } from '@/contexts/SiteSettingsContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface Episode {
   id: string;
@@ -219,6 +221,8 @@ const NativeVideoPlayer = ({
   const { settings: playerSettings } = useNativePlayerSettings();
   const { settings: supportUsSettings } = useSupportUsSettings();
   const { hasActiveSubscription } = useSubscription();
+  const { settings: siteSettings, logos } = useSiteSettings();
+  const { theme } = useTheme();
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1253,56 +1257,82 @@ const NativeVideoPlayer = ({
               )}
             </div>
 
-            {/* Bottom Controls */}
+            {/* Bottom Controls - Glass Modern Style */}
             <div className={`absolute bottom-0 left-0 right-0 z-40 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
-              {/* Progress Bar */}
-              <div className="px-4 pb-2">
-                <div className="relative h-1.5 bg-white/20 rounded-full">
-                  <div className="absolute h-full bg-white/30 rounded-full" style={{ width: `${(buffered / duration) * 100}%` }} />
+              {/* Progress Bar - Super Thin */}
+              <div className="px-4 pb-1.5">
+                <div className="relative h-[3px] bg-white/15 rounded-full overflow-hidden">
+                  <div className="absolute h-full bg-white/25 rounded-full" style={{ width: `${(buffered / duration) * 100}%` }} />
                   <Slider
                     value={[currentTime]}
                     max={duration || 100}
                     step={0.1}
                     onValueChange={handleSeek}
-                    className="absolute inset-0"
+                    className="absolute inset-0 [&_[role=slider]]:h-2.5 [&_[role=slider]]:w-2.5"
                   />
                 </div>
               </div>
 
-              {/* Control Bar */}
-              <div className="bg-gradient-to-t from-black/90 to-transparent px-4 pb-4 pt-2 flex items-center justify-between">
+              {/* Control Bar - Glass Effect */}
+              <div 
+                className="px-3 pb-3 pt-1.5 flex items-center justify-between"
+                style={{
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)',
+                }}
+              >
+                {/* Left Side - Logo, Site Name, Time */}
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={toggleMute} className="h-8 w-8 text-white">
-                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  {/* Site Logo & Name - Small */}
+                  {(logos.light_logo || logos.dark_logo) && (
+                    <div className="flex items-center gap-1.5 mr-2">
+                      <img 
+                        src={theme === 'dark' ? logos.dark_logo : logos.light_logo} 
+                        alt={siteSettings.site_title}
+                        className="h-4 w-4 object-contain rounded"
+                      />
+                      <span className="text-white/70 text-[10px] font-medium hidden sm:inline">
+                        {siteSettings.site_title}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={toggleMute} 
+                    className="h-6 w-6 text-white/90 hover:text-white hover:bg-white/10"
+                  >
+                    {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
                   </Button>
-                  <span className="text-white text-xs">
+                  <span className="text-white/80 text-[10px] tabular-nums">
                     {formatTime(currentTime)} / {formatTime(duration)}
                   </span>
                 </div>
                 
-                <div className="flex items-center gap-1">
-                  {/* Screen Lock Button - Before Episodes (for MP4/HLS sources) */}
+                {/* Right Side - Thin Controls */}
+                <div className="flex items-center gap-0.5">
+                  {/* Screen Lock Button */}
                   {playerSettings.showScreenLock && isPlayableSource && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       onClick={() => setIsScreenLocked(true)}
-                      className="h-8 w-8 text-white hover:bg-white/10"
+                      className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/10"
                     >
-                      <Lock className="h-4 w-4" />
+                      <Lock className="h-3 w-3" />
                     </Button>
                   )}
                   
-                  {/* Episodes Button (text version for bottom bar) */}
+                  {/* Episodes Button */}
                   {playerSettings.showEpisodesPanel && episodes.length > 0 && (
                     <Button 
                       variant="ghost" 
                       size="sm"
                       onClick={() => setShowEpisodesPanel(true)} 
-                      className="h-8 text-white gap-1.5 px-2"
+                      className="h-6 text-white/80 hover:text-white gap-1 px-1.5 hover:bg-white/10"
                     >
-                      <ListVideo className="h-4 w-4" />
-                      <span className="text-xs hidden sm:inline">Episodes</span>
+                      <ListVideo className="h-3 w-3" />
+                      <span className="text-[10px] hidden sm:inline">Episodes</span>
                     </Button>
                   )}
                   
@@ -1325,8 +1355,13 @@ const NativeVideoPlayer = ({
                     sourceType={sourceType}
                   />
                   
-                  <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="h-8 w-8 text-white">
-                    {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={toggleFullscreen} 
+                    className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/10"
+                  >
+                    {isFullscreen ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
                   </Button>
                 </div>
               </div>
