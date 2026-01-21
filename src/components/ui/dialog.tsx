@@ -19,8 +19,8 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-[10000] bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
+      "inset-0 z-[10000] bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      className ?? "fixed",
     )}
     {...props}
   />
@@ -33,28 +33,31 @@ const DialogContent = React.forwardRef<
     hideCloseButton?: boolean;
     container?: HTMLElement | null;
   }
->(({ className, children, hideCloseButton, container, ...props }, ref) => (
-  <DialogPortal container={container}>
-    <DialogOverlay className={container ? "absolute" : "fixed"} />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-[10001] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        container && "absolute",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-4 top-4 h-10 w-10 rounded-full bg-destructive text-white flex items-center justify-center shadow-xl ring-offset-background transition-all hover:bg-destructive/80 hover:scale-110 focus:outline-none disabled:pointer-events-none z-[10002] border-2 border-white/20">
-          <X className="h-5 w-5" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      )}
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
+>(({ className, children, hideCloseButton, container, ...props }, ref) => {
+  const positionClass = container ? "absolute" : "fixed";
+
+  return (
+    <DialogPortal container={container ?? undefined}>
+      <DialogOverlay className={positionClass} />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          `${positionClass} left-[50%] top-[50%] z-[10001] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg`,
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        {!hideCloseButton && (
+          <DialogPrimitive.Close className="absolute right-4 top-4 h-10 w-10 rounded-full bg-destructive text-white flex items-center justify-center shadow-xl ring-offset-background transition-all hover:bg-destructive/80 hover:scale-110 focus:outline-none disabled:pointer-events-none z-[10002] border-2 border-white/20">
+            <X className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        )}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  );
+});
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
