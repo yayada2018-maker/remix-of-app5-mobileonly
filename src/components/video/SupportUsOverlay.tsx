@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Heart, Wallet, ChevronRight, Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/hooks/useWallet';
 import { AuthDialog } from '@/components/AuthDialog';
@@ -26,7 +27,7 @@ interface SupportUsOverlayProps {
   supportAmounts?: number[];
   episodeId?: string;
   colors?: SupportUsColors;
-  containerRef?: React.RefObject<HTMLElement | null>;
+  containerRef?: RefObject<HTMLElement | null>;
 }
 
 const defaultColors: SupportUsColors = {
@@ -61,6 +62,11 @@ export const SupportUsOverlay = ({
   const [isSupporting, setIsSupporting] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showAuthDialogPending, setShowAuthDialogPending] = useState(false);
+  const [showThankYou, setShowThankYou] = useState(false);
+
+  const portalContainer =
+    containerRef?.current ||
+    (typeof document !== 'undefined' ? (document.fullscreenElement as HTMLElement | null) : null);
 
   // Reset countdown when overlay becomes visible
   useEffect(() => {
@@ -189,7 +195,12 @@ export const SupportUsOverlay = ({
       });
       
       refetchWallet();
-      onClose();
+      // Show a short celebration animation, then close
+      setShowThankYou(true);
+      setTimeout(() => {
+        setShowThankYou(false);
+        onClose();
+      }, 1200);
     } catch (error: any) {
       toast({
         title: "Support Failed",
@@ -208,7 +219,50 @@ export const SupportUsOverlay = ({
 
   return (
     <>
-      <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      {/* Keep overlay below dialog z-index so dialogs never appear behind it */}
+      <div className="absolute inset-0 z-[9998] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <AnimatePresence>
+          {showThankYou && (
+            <motion.div
+              className="absolute inset-0 z-[10003] flex items-center justify-center pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                className="relative flex flex-col items-center gap-2"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              >
+                <div className="text-white text-lg sm:text-2xl font-bold">Thank you!</div>
+                <div className="text-white/70 text-xs sm:text-sm">Your support helps us keep going.</div>
+
+                {/* Heart burst */}
+                <div className="absolute inset-0">
+                  {Array.from({ length: 10 }).map((_, i) => {
+                    const angle = (i / 10) * Math.PI * 2;
+                    const distance = 60;
+                    const x = Math.cos(angle) * distance;
+                    const y = Math.sin(angle) * distance;
+                    return (
+                      <motion.div
+                        key={i}
+                        className="absolute left-1/2 top-1/2"
+                        initial={{ x: 0, y: 0, opacity: 0, scale: 0.6 }}
+                        animate={{ x, y, opacity: [0, 1, 0], scale: [0.6, 1, 0.8] }}
+                        transition={{ duration: 1.0, delay: i * 0.03 }}
+                      >
+                        <Heart className="w-4 h-4 text-primary" fill="currentColor" />
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Countdown circle - positioned for both portrait and landscape */}
         <div className="absolute top-1/2 right-3 sm:right-6 -translate-y-1/2 flex flex-col sm:flex-row items-center gap-1.5">
           <div className="relative w-8 h-8 sm:w-10 sm:h-10">
@@ -392,7 +446,7 @@ export const SupportUsOverlay = ({
         open={showAuthDialog}
         onOpenChange={handleAuthDialogClose}
         onSuccess={handleAuthSuccess}
-        container={containerRef?.current}
+        container={portalContainer}
       />
 
       {/* KHQR Payment Dialog for Top Up */}
@@ -400,7 +454,7 @@ export const SupportUsOverlay = ({
         isOpen={showKHQRDialog}
         onClose={() => setShowKHQRDialog(false)}
         onSuccess={handleTopupSuccess}
-        container={containerRef?.current}
+        container={portalContainer}
       />
     </>
   );
