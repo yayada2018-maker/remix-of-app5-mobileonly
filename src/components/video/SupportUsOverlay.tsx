@@ -26,6 +26,7 @@ interface SupportUsOverlayProps {
   supportAmounts?: number[];
   episodeId?: string;
   colors?: SupportUsColors;
+  containerRef?: React.RefObject<HTMLElement | null>;
 }
 
 const defaultColors: SupportUsColors = {
@@ -44,7 +45,8 @@ export const SupportUsOverlay = ({
   countdownSeconds = 10,
   supportAmounts = [0.5, 1, 2, 5],
   episodeId,
-  colors = defaultColors
+  colors = defaultColors,
+  containerRef
 }: SupportUsOverlayProps) => {
   const { user } = useAuth();
   const { balance, loading: walletLoading, refetch: refetchWallet } = useWallet();
@@ -206,7 +208,7 @@ export const SupportUsOverlay = ({
 
   return (
     <>
-      <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm">
         {/* Countdown circle - positioned for both portrait and landscape */}
         <div className="absolute top-1/2 right-3 sm:right-6 -translate-y-1/2 flex flex-col sm:flex-row items-center gap-1.5">
           <div className="relative w-8 h-8 sm:w-10 sm:h-10">
@@ -390,6 +392,7 @@ export const SupportUsOverlay = ({
         open={showAuthDialog}
         onOpenChange={handleAuthDialogClose}
         onSuccess={handleAuthSuccess}
+        container={containerRef?.current}
       />
 
       {/* KHQR Payment Dialog for Top Up */}
@@ -397,6 +400,7 @@ export const SupportUsOverlay = ({
         isOpen={showKHQRDialog}
         onClose={() => setShowKHQRDialog(false)}
         onSuccess={handleTopupSuccess}
+        container={containerRef?.current}
       />
     </>
   );

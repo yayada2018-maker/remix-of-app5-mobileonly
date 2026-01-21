@@ -14,9 +14,10 @@ interface KHQRPaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (newBalance: number) => void;
+  container?: HTMLElement | null;
 }
 
-export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDialogProps) => {
+export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess, container }: KHQRPaymentDialogProps) => {
   const { user } = useAuth();
   const { logos } = useSiteSettings();
   
@@ -403,7 +404,7 @@ export const KHQRPaymentDialog = ({ isOpen, onClose, onSuccess }: KHQRPaymentDia
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-md landscape:max-w-[55vw] landscape:md:max-w-[45vw] landscape:max-h-[90vh] max-h-[85vh] overflow-y-auto p-4 sm:p-6 landscape:p-3 landscape:py-4 bg-gradient-to-br from-background via-background to-primary/5">
+      <DialogContent container={container} className="max-w-[95vw] sm:max-w-md landscape:max-w-[55vw] landscape:md:max-w-[45vw] landscape:max-h-[90vh] max-h-[85vh] overflow-y-auto p-4 sm:p-6 landscape:p-3 landscape:py-4 bg-gradient-to-br from-background via-background to-primary/5">
         {/* Header with Logo - Matching reference design */}
         <DialogHeader className="landscape:pb-2 pb-3">
           <div className="flex items-center gap-3 landscape:gap-2">

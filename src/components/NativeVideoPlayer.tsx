@@ -1155,6 +1155,7 @@ const NativeVideoPlayer = ({
             supportAmounts={supportUsSettings.amounts}
             episodeId={currentEpisodeId}
             colors={supportUsSettings.colors}
+            containerRef={containerRef}
           />
         )}
 
