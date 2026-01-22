@@ -270,6 +270,14 @@ const NativeVideoPlayer = ({
     return videoSources.length > 0 && videoSources.every(source => source.permission === 'web_only');
   }, [videoSources]);
 
+  // Check if ALL sources are mobile_only (native app only) - block mobile browsers/PWA
+  const allSourcesMobileOnly = useMemo(() => {
+    const isNative = Capacitor.isNativePlatform();
+    // Only apply this restriction on mobile browsers/PWA (not native apps)
+    if (isNative) return false;
+    return videoSources.length > 0 && videoSources.every(source => source.permission === 'mobile_only');
+  }, [videoSources]);
+
   const prevEpisodeIdRef = useRef<string | undefined>(currentEpisodeId);
   const hadSourcesRef = useRef<boolean>(false);
   const pendingEpisodeIdRef = useRef<string | undefined>(undefined);
@@ -921,6 +929,16 @@ const NativeVideoPlayer = ({
 
   // Loading state
   if (!currentServer) {
+    // Block mobile browsers/PWA when all sources are mobile_only (native app only)
+    if (allSourcesMobileOnly) {
+      return (
+        <div ref={containerRef} className="relative bg-black w-full aspect-video">
+          <AppLockOverlay type="mobile_only" contentBackdrop={contentBackdrop} />
+          {paymentDialogs}
+        </div>
+      );
+    }
+
     if (allSourcesWebOnly) {
       return (
         <div ref={containerRef} className="relative bg-black w-full aspect-video">
@@ -1094,13 +1112,18 @@ const NativeVideoPlayer = ({
           </div>
         )}
 
+        {/* Mobile Only Lock - Block mobile browsers/PWA when content is native app only */}
+        {allSourcesMobileOnly && !isLocked && !accessLoading && (
+          <AppLockOverlay type="mobile_only" contentBackdrop={contentBackdrop} />
+        )}
+
         {/* Web Only Lock */}
         {allSourcesWebOnly && !isLocked && !accessLoading && (
           <AppLockOverlay type="web_only" contentBackdrop={contentBackdrop} />
         )}
 
         {/* Video Element for MP4 and HLS sources */}
-        {isPlayableSource && !isLocked && !accessLoading && !allSourcesWebOnly && (
+        {isPlayableSource && !isLocked && !accessLoading && !allSourcesWebOnly && !allSourcesMobileOnly && (
           <video
             ref={videoRef}
             className="w-full h-full"
