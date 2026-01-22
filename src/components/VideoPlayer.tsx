@@ -40,6 +40,7 @@ import { VideoAdPlayer } from '@/components/ads/VideoAdPlayer';
 import { useSiteSettings } from '@/contexts/SiteSettingsContext';
 import AppLockOverlay from '@/components/AppLockOverlay';
 import { useAdMobRewarded } from '@/hooks/useAdMobRewarded';
+import { SkipIntroButton } from '@/components/video/SkipIntroButton';
 
 interface VideoPlayerProps {
   videoSources: VideoSource[];
@@ -59,6 +60,9 @@ interface VideoPlayerProps {
   title?: string;
   movieId?: string;
   onEnded?: () => void;
+  // Skip Intro feature
+  introStartTime?: number;  // When intro starts (usually 0)
+  introEndTime?: number;    // When intro ends (skip target in seconds)
 }
 
 // Helpers
@@ -212,7 +216,9 @@ const VideoPlayer = ({
   mediaType,
   title,
   movieId,
-  onEnded
+  onEnded,
+  introStartTime = 0,
+  introEndTime
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1624,6 +1630,13 @@ const VideoPlayer = ({
     videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
   };
 
+  // Skip Intro handler - jumps to the end of intro
+  const handleSkipIntro = useCallback(() => {
+    if (!videoRef.current || !introEndTime) return;
+    console.log('[VideoPlayer] Skipping intro to', introEndTime);
+    videoRef.current.currentTime = introEndTime;
+  }, [introEndTime]);
+
   const handlePlaybackSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
     if (videoRef.current) {
@@ -2033,7 +2046,18 @@ const VideoPlayer = ({
           <span className="text-white text-xs font-medium">{zoomPercentage}%</span>
         </button>
       )}
-      
+
+      {/* Skip Intro Button - Shows during intro portion of video */}
+      {sourceType !== "embed" && sourceType !== "iframe" && !isLocked && !accessLoading && !allSourcesMobileOnly && !allSourcesWebOnly && introEndTime && introEndTime > 0 && (
+        <SkipIntroButton
+          currentTime={currentTime}
+          introStartTime={introStartTime}
+          introEndTime={introEndTime}
+          onSkipIntro={handleSkipIntro}
+          isVisible={showControls || !isPlaying}
+        />
+      )}
+
       {/* Server dropdown for iframe/embed sources - always show when multiple servers exist */}
       {(sourceType === "embed" || sourceType === "iframe") && !accessLoading && allAvailableSources.length > 1 && (
         <div className="absolute top-2 right-2 z-[9999] flex gap-2 pointer-events-auto">

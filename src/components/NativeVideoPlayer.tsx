@@ -4,6 +4,7 @@ import {
   Loader2, SkipBack, SkipForward, Crown,
   Server as ServerIcon, CreditCard, ArrowLeft, Lock, ListVideo, Heart
 } from "lucide-react";
+import { SkipIntroButton } from "@/components/video/SkipIntroButton";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,6 +73,9 @@ interface NativeVideoPlayerProps {
   movieId?: string;
   onEnded?: () => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
+  // Skip Intro feature
+  introStartTime?: number;  // When intro starts (usually 0)
+  introEndTime?: number;    // When intro ends (skip target in seconds)
 }
 
 // Debug logging for native player
@@ -176,7 +180,9 @@ const NativeVideoPlayer = ({
   title,
   movieId,
   onEnded,
-  onFullscreenChange
+  onFullscreenChange,
+  introStartTime = 0,
+  introEndTime
 }: NativeVideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -770,6 +776,13 @@ const NativeVideoPlayer = ({
     videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
   };
 
+  // Skip Intro handler - jumps to the end of intro
+  const handleSkipIntro = useCallback(() => {
+    if (!videoRef.current || !introEndTime) return;
+    logNativeDebug('skipIntro', 'Skipping intro to', introEndTime);
+    videoRef.current.currentTime = introEndTime;
+  }, [introEndTime]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -1154,6 +1167,17 @@ const NativeVideoPlayer = ({
             isLocked={isScreenLocked}
             onToggleLock={() => setIsScreenLocked(!isScreenLocked)}
             showControls={showControls}
+          />
+        )}
+
+        {/* Skip Intro Button - Shows during intro portion of video */}
+        {isPlayableSource && !isLocked && !accessLoading && !isScreenLocked && introEndTime && introEndTime > 0 && (
+          <SkipIntroButton
+            currentTime={currentTime}
+            introStartTime={introStartTime}
+            introEndTime={introEndTime}
+            onSkipIntro={handleSkipIntro}
+            isVisible={showControls || !isPlaying}
           />
         )}
 
