@@ -28,6 +28,7 @@ interface SupportUsOverlayProps {
   episodeId?: string;
   colors?: SupportUsColors;
   containerRef?: RefObject<HTMLElement | null>;
+  startAtWallet?: boolean; // Skip initial step and go directly to wallet
 }
 
 const defaultColors: SupportUsColors = {
@@ -47,7 +48,8 @@ export const SupportUsOverlay = ({
   supportAmounts = [0.5, 1, 2, 5],
   episodeId,
   colors = defaultColors,
-  containerRef
+  containerRef,
+  startAtWallet = false
 }: SupportUsOverlayProps) => {
   const { user } = useAuth();
   const { balance, loading: walletLoading, refetch: refetchWallet } = useWallet();
@@ -72,12 +74,18 @@ export const SupportUsOverlay = ({
   useEffect(() => {
     if (isVisible) {
       setCountdown(countdownSeconds);
-      setStep('initial');
-      setIsProcessingPayment(false);
+      // If startAtWallet and user is logged in, skip to wallet step
+      if (startAtWallet && user) {
+        setStep('wallet');
+        setIsProcessingPayment(true);
+      } else {
+        setStep('initial');
+        setIsProcessingPayment(false);
+      }
       setShowAuthDialogPending(false);
       setCustomAmount('');
     }
-  }, [isVisible, countdownSeconds]);
+  }, [isVisible, countdownSeconds, startAtWallet, user]);
 
   // Auto-dismiss countdown - pause when auth dialog is shown or processing payment
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { 
   Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
   Loader2, SkipBack, SkipForward, Crown,
-  Server as ServerIcon, CreditCard, ArrowLeft, Lock, ListVideo
+  Server as ServerIcon, CreditCard, ArrowLeft, Lock, ListVideo, Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -204,6 +204,7 @@ const NativeVideoPlayer = ({
   const [supportUsShownAtStart, setSupportUsShownAtStart] = useState(false);
   const [supportUsShownAt50, setSupportUsShownAt50] = useState(false);
   const [supportUsShownAt85, setSupportUsShownAt85] = useState(false);
+  const [supportUsStartAtWallet, setSupportUsStartAtWallet] = useState(false);
   // State to control if video has been played for the first time
   const [hasAttemptedFirstPlay, setHasAttemptedFirstPlay] = useState(false);
   const [pendingPlayAfterOverlay, setPendingPlayAfterOverlay] = useState(false);
@@ -845,11 +846,18 @@ const NativeVideoPlayer = ({
   // Handle support us overlay skip/close - play video if pending
   const handleSupportUsClose = useCallback(() => {
     setShowSupportUsOverlay(false);
+    setSupportUsStartAtWallet(false);
     if (pendingPlayAfterOverlay && videoRef.current) {
       setPendingPlayAfterOverlay(false);
       videoRef.current.play().catch(console.error);
     }
   }, [pendingPlayAfterOverlay]);
+
+  // Handle quick support button click - opens overlay directly at wallet step
+  const handleQuickSupport = useCallback(() => {
+    setSupportUsStartAtWallet(true);
+    setShowSupportUsOverlay(true);
+  }, []);
 
   // Video settings handlers
   const handleQualityChange = useCallback((quality: string) => {
@@ -1156,6 +1164,7 @@ const NativeVideoPlayer = ({
             episodeId={currentEpisodeId}
             colors={supportUsSettings.colors}
             containerRef={containerRef}
+            startAtWallet={supportUsStartAtWallet}
           />
         )}
 
@@ -1334,6 +1343,19 @@ const NativeVideoPlayer = ({
                     >
                       <ListVideo className="h-3 w-3" />
                       <span className="text-[10px] hidden sm:inline">Episodes</span>
+                    </Button>
+                  )}
+                  
+                  {/* Quick Support Button - Opens wallet step directly for logged-in users */}
+                  {playerSettings.showSupportUsOverlay && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={handleQuickSupport}
+                      className="h-6 text-white/80 hover:text-white gap-1 px-1.5 hover:bg-white/10"
+                    >
+                      <Heart className="h-3 w-3" />
+                      <span className="text-[10px] hidden sm:inline">Support</span>
                     </Button>
                   )}
                   
