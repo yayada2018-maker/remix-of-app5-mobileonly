@@ -391,7 +391,23 @@ export function AppAdsManager() {
                   Create App Ad
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent
+                className="max-w-2xl max-h-[90vh] overflow-y-auto"
+                onPointerDownOutside={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  // Radix Select content is portalled; without this, the dialog can treat it as an
+                  // outside click and immediately close (making the dropdown feel like it won't open).
+                  if (target?.closest?.('[data-radix-popper-content-wrapper]')) {
+                    e.preventDefault();
+                  }
+                }}
+                onInteractOutside={(e) => {
+                  const target = e.target as HTMLElement | null;
+                  if (target?.closest?.('[data-radix-popper-content-wrapper]')) {
+                    e.preventDefault();
+                  }
+                }}
+              >
                 <DialogHeader>
                   <DialogTitle>{editingAd ? 'Edit App Ad' : 'Create New App Ad'}</DialogTitle>
                 </DialogHeader>
