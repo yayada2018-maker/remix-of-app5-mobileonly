@@ -446,7 +446,7 @@ export function AppAdsManager() {
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select ad type" />
                         </SelectTrigger>
-                        <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
+                        <SelectContent className="z-[10003]" position="popper" sideOffset={4}>
                           {AD_TYPES.map((t) => (
                             <SelectItem key={t.value} value={t.value}>
                               <span>{t.label}</span>
@@ -467,7 +467,7 @@ export function AppAdsManager() {
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select platform" />
                         </SelectTrigger>
-                        <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
+                        <SelectContent className="z-[10003]" position="popper" sideOffset={4}>
                           {PLATFORMS.map((p) => (
                             <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                           ))}
@@ -485,7 +485,7 @@ export function AppAdsManager() {
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select placement" />
                       </SelectTrigger>
-                      <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
+                      <SelectContent className="z-[10003]" position="popper" sideOffset={4}>
                         {APP_PLACEMENTS.map((p) => (
                           <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                         ))}
