@@ -427,20 +427,20 @@ export function AppAdsManager() {
                         value={formData.ad_type}
                         onValueChange={(value) => setFormData({ ...formData, ad_type: value })}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select ad type" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
                           {AD_TYPES.map((t) => (
                             <SelectItem key={t.value} value={t.value}>
-                              <div>
-                                <div>{t.label}</div>
-                                <div className="text-xs text-muted-foreground">{t.description}</div>
-                              </div>
+                              <span>{t.label}</span>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {AD_TYPES.find(t => t.value === formData.ad_type)?.description}
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label>Platform *</Label>
@@ -448,10 +448,10 @@ export function AppAdsManager() {
                         value={formData.platform}
                         onValueChange={(value) => setFormData({ ...formData, platform: value })}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select platform" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
                           {PLATFORMS.map((p) => (
                             <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                           ))}
@@ -466,10 +466,10 @@ export function AppAdsManager() {
                       value={formData.placement}
                       onValueChange={(value) => setFormData({ ...formData, placement: value })}
                     >
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select placement" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[10000]" position="popper" sideOffset={4}>
                         {APP_PLACEMENTS.map((p) => (
                           <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
                         ))}
