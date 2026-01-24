@@ -309,6 +309,72 @@ export function AppAdsManager() {
     setFormData({ ...formData, ad_unit_id: testUnit, is_test_mode: true });
   };
 
+  // Quick add rewarded test ad for Android
+  const quickAddRewardedAd = async () => {
+    try {
+      const adData = {
+        name: 'Android Rewarded - Test',
+        ad_type: 'rewarded',
+        ad_unit_id: TEST_AD_UNITS.android.rewarded,
+        platform: 'android',
+        placement: 'reward_unlock',
+        is_active: true,
+        is_test_mode: true,
+        priority: 1,
+        reward_amount: 1,
+        reward_type: 'unlock',
+      };
+
+      const { error } = await supabase
+        .from('app_ads')
+        .insert(adData);
+
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Android Rewarded test ad created' });
+      fetchAppAds();
+    } catch (error) {
+      console.error('Error creating rewarded ad:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create rewarded test ad',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Quick add interstitial test ad for Android (episode_interstitial placement)
+  const quickAddInterstitialAd = async () => {
+    try {
+      const adData = {
+        name: 'Android Interstitial - Between Episodes',
+        ad_type: 'interstitial',
+        ad_unit_id: TEST_AD_UNITS.android.interstitial,
+        platform: 'android',
+        placement: 'episode_interstitial',
+        is_active: true,
+        is_test_mode: true,
+        priority: 1,
+        frequency_cap: 3,
+        show_after_seconds: 0,
+      };
+
+      const { error } = await supabase
+        .from('app_ads')
+        .insert(adData);
+
+      if (error) throw error;
+      toast({ title: 'Success', description: 'Android Interstitial test ad created' });
+      fetchAppAds();
+    } catch (error) {
+      console.error('Error creating interstitial ad:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create interstitial test ad',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getAdTypeLabel = (type: string) => AD_TYPES.find(t => t.value === type)?.label || type;
   const getPlacementLabel = (placement: string) => APP_PLACEMENTS.find(p => p.value === placement)?.label || placement;
   const getPlatformLabel = (platform: string) => PLATFORMS.find(p => p.value === platform)?.label || platform;
@@ -376,8 +442,16 @@ export function AppAdsManager() {
         </TabsList>
 
         <TabsContent value="ads" className="space-y-4">
-          {/* Create Button */}
-          <div className="flex justify-end">
+          {/* Create Buttons */}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={quickAddInterstitialAd}>
+              <Plus className="h-4 w-4 mr-2" />
+              Quick Interstitial (Episodes)
+            </Button>
+            <Button variant="outline" onClick={quickAddRewardedAd}>
+              <Plus className="h-4 w-4 mr-2" />
+              Quick Rewarded
+            </Button>
             <Dialog open={isDialogOpen} onOpenChange={(open) => {
               setIsDialogOpen(open);
               if (!open) {
