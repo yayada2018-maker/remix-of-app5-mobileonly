@@ -337,12 +337,13 @@ export function NativeBannerAdSlot({
 
           const safeAreaMargin = position === "bottom" ? 0 : 24;
 
+          // Use actual ad unit ID from database, with test mode from settings
           const bannerOptions = {
-            adId: "ca-app-pub-3940256099942544/6300978111", // Google's test banner ID
+            adId: ad.ad_unit_id,
             adSize: "ADAPTIVE_BANNER",
             position: adPosition,
             margin: safeAreaMargin,
-            isTesting: true, // Forcing test mode
+            isTesting: useTestMode,
           };
 
           logAdMob("info", `Calling AdMob.showBanner()`, bannerOptions);
@@ -351,8 +352,10 @@ export function NativeBannerAdSlot({
 
           setBannerShown(true);
           logAdMob("info", `✅ Banner SHOWN successfully for: ${placement}`, {
+            adId: ad.ad_unit_id,
             position: adPosition,
             margin: safeAreaMargin,
+            testMode: useTestMode,
           });
           break;
 

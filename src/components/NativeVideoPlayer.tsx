@@ -36,6 +36,7 @@ import { VideoSettingsMenu } from '@/components/VideoSettingsMenu';
 import { useNativeShakaPlayer, detectSourceType } from '@/hooks/useNativeShakaPlayer';
 import { useSiteSettings } from '@/contexts/SiteSettingsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAdMob } from '@/hooks/useAdMob';
 
 interface Episode {
   id: string;
@@ -230,6 +231,7 @@ const NativeVideoPlayer = ({
   const { hasActiveSubscription } = useSubscription();
   const { settings: siteSettings, logos } = useSiteSettings();
   const { theme } = useTheme();
+  const { showInterstitialAd, canShowInterstitial, interstitialSettings } = useAdMob();
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -832,6 +834,17 @@ const NativeVideoPlayer = ({
     setIsLoading(true);
     setIsPlaying(false);
     
+    // Show interstitial ad between episodes if enabled and allowed
+    const shouldShowInterstitial = interstitialSettings?.show_between_episodes && canShowInterstitial();
+    if (shouldShowInterstitial) {
+      logNativeDebug('handleEpisodeSelect', 'Showing interstitial ad between episodes');
+      try {
+        await showInterstitialAd('episode_interstitial');
+      } catch (error) {
+        logNativeDebug('handleEpisodeSelect', 'Interstitial ad failed:', error);
+      }
+    }
+    
     // Clean up Shaka player if we were using HLS
     if (sourceType === 'hls') {
       await cleanupShaka();
@@ -862,7 +875,7 @@ const NativeVideoPlayer = ({
       setHasAttemptedFirstPlay(false);
       setPendingPlayAfterOverlay(false);
     }, 100);
-  }, [onEpisodeSelect, sourceType, cleanupShaka]);
+  }, [onEpisodeSelect, sourceType, cleanupShaka, showInterstitialAd, canShowInterstitial, interstitialSettings]);
 
   // Handle support us overlay skip/close - play video if pending
   const handleSupportUsClose = useCallback(() => {
