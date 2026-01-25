@@ -188,6 +188,7 @@ const NativeVideoPlayer = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const lastLoadedSourceRef = useRef<{ type: 'mp4' | 'hls'; url: string; serverId?: string } | null>(null);
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -567,6 +568,15 @@ const NativeVideoPlayer = ({
     };
   }, [isPlayableSource, saveProgress, onEnded]);
 
+  // Keep native video element state in sync (without reloading sources)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = isMuted;
+    // Clamp volume (some WebViews are picky)
+    video.volume = Math.max(0, Math.min(1, volume));
+  }, [isMuted, volume]);
+
   // Load video source (MP4 or HLS)
   useEffect(() => {
     if (!currentServer || !isPlayableSource || !videoRef.current || isLocked) {
@@ -580,10 +590,9 @@ const NativeVideoPlayer = ({
     }
     
     const loadVideo = async () => {
-      setIsLoading(true);
-      
       // Get the actual URL to use (considering quality_urls for MP4)
       let videoUrl: string = currentServer.url || '';
+      let resolvedQuality: string | undefined;
 
       // Check if we have quality URLs for MP4
       if (sourceType === 'mp4' && currentServer.quality_urls && typeof currentServer.quality_urls === 'object') {
@@ -600,19 +609,21 @@ const NativeVideoPlayer = ({
         const getResolution = (q: string) => parseInt(q.replace(/\D/g, '')) || 0;
         const sortedQualities = Object.keys(validQualityUrls).sort((a, b) => getResolution(a) - getResolution(b));
 
-        // Native default: prefer 480p (or the lowest available) when in Auto mode.
-        const defaultAutoQuality = sortedQualities.find((q) => q.includes('480')) || sortedQualities[0];
+        // Prefer admin-configured default quality when available.
+        const adminDefaultQuality =
+          typeof currentServer.quality === 'string' && validQualityUrls[currentServer.quality]
+            ? currentServer.quality
+            : undefined;
 
-        const desiredQuality = autoQualityEnabled
-          ? defaultAutoQuality
-          : (currentQuality && currentQuality !== 'auto' ? currentQuality : defaultAutoQuality);
+        // Fallback default: prefer 480p (or lowest available)
+        const fallbackDefaultQuality = sortedQualities.find((q) => q.includes('480')) || sortedQualities[0];
 
-        const finalQuality = desiredQuality && validQualityUrls[desiredQuality] ? desiredQuality : defaultAutoQuality;
+        const desiredQuality = !autoQualityEnabled
+          ? (currentQuality && currentQuality !== 'auto' ? currentQuality : (adminDefaultQuality || fallbackDefaultQuality))
+          : (adminDefaultQuality || fallbackDefaultQuality);
 
-        if (finalQuality && currentQuality !== finalQuality) {
-          // Keep UI label in sync immediately so we don't briefly show 1080p.
-          setCurrentQuality(finalQuality);
-        }
+        const finalQuality = desiredQuality && validQualityUrls[desiredQuality] ? desiredQuality : (adminDefaultQuality || fallbackDefaultQuality);
+        resolvedQuality = finalQuality;
 
         // Get the URL string - ensure it's a string, not an object
         const qualityUrl = finalQuality ? validQualityUrls[finalQuality] : null;
@@ -629,10 +640,31 @@ const NativeVideoPlayer = ({
         return;
       }
       
-      logNativeDebug('loadVideo', `Loading ${sourceType} source`, 
-        `server=${currentServer.server_name}, url=${videoUrl.substring(0, 80)}`);
+      // Avoid re-loading the exact same source repeatedly (can break playback on Android WebView)
+      const last = lastLoadedSourceRef.current;
+      if (
+        (sourceType === 'mp4' || sourceType === 'hls') &&
+        last?.type === sourceType &&
+        last?.url === videoUrl &&
+        last?.serverId === currentServer.id
+      ) {
+        logNativeDebug('loadVideo', 'Skipping reload (already loaded)', {
+          type: sourceType,
+          server: currentServer.server_name,
+          url: videoUrl.substring(0, 80),
+        });
+        // Don't touch loading state here; keep UI stable.
+        return;
+      }
+
+      logNativeDebug('loadVideo', `Loading ${sourceType} source`, {
+        server: currentServer.server_name,
+        url: videoUrl.substring(0, 120),
+        resolvedQuality,
+      });
       
       if (sourceType === 'hls') {
+        setIsLoading(true);
         // Use Shaka Player for HLS
         logNativeDebug('loadVideo', 'Using Shaka Player for HLS');
         const success = await loadShakaSource(videoUrl, 'application/x-mpegURL');
@@ -641,8 +673,10 @@ const NativeVideoPlayer = ({
           logNativeDebug('loadVideo', 'HLS load failed');
         } else {
           logNativeDebug('loadVideo', 'HLS load successful');
+          lastLoadedSourceRef.current = { type: 'hls', url: videoUrl, serverId: currentServer.id };
         }
       } else {
+        setIsLoading(true);
         // For MP4, use direct src loading for better native compatibility
         logNativeDebug('loadVideo', 'Using direct src for MP4', videoUrl.substring(0, 100));
         try {
@@ -653,6 +687,10 @@ const NativeVideoPlayer = ({
           if (video) {
             video.preload = 'metadata';
             video.playsInline = true;
+            // Ensure state is consistent (also synced by separate effect)
+            video.muted = isMuted;
+            video.volume = Math.max(0, Math.min(1, volume));
+
             // Ensure we're setting a string URL
             video.src = videoUrl;
             video.load();
@@ -667,6 +705,16 @@ const NativeVideoPlayer = ({
               logNativeDebug('loadVideo', 'MP4 load error', 
                 `code=${video.error?.code}, message=${video.error?.message}`);
             }, { once: true });
+
+            video.addEventListener('stalled', () => {
+              logNativeDebug('loadVideo', 'MP4 stalled');
+            }, { once: true });
+
+            video.addEventListener('waiting', () => {
+              logNativeDebug('loadVideo', 'MP4 waiting/buffering');
+            }, { once: true });
+
+            lastLoadedSourceRef.current = { type: 'mp4', url: videoUrl, serverId: currentServer.id };
           }
         } catch (error) {
           console.error('Error loading MP4:', error);
@@ -677,9 +725,9 @@ const NativeVideoPlayer = ({
     };
     
     loadVideo();
-  }, [currentServer, isPlayableSource, isLocked, restoreProgress, currentQuality, sourceType, loadShakaSource, cleanupShaka]);
+  }, [currentServer, isPlayableSource, isLocked, restoreProgress, currentQuality, sourceType, loadShakaSource, cleanupShaka, autoQualityEnabled]);
 
-  const togglePlayPause = useCallback(() => {
+  const togglePlayPause = useCallback(async () => {
     if (!videoRef.current || !isPlayableSource) return;
     
     // Check if support us overlay should show on first play attempt
@@ -696,7 +744,26 @@ const NativeVideoPlayer = ({
     if (isPlaying) {
       videoRef.current.pause();
     } else {
-      videoRef.current.play().catch(console.error);
+      try {
+        logNativeDebug('play', 'Attempting play()', {
+          src: videoRef.current.currentSrc?.substring(0, 120) || videoRef.current.src?.substring(0, 120),
+          readyState: videoRef.current.readyState,
+          networkState: videoRef.current.networkState,
+        });
+        await videoRef.current.play();
+        logNativeDebug('play', 'play() resolved');
+      } catch (err) {
+        logNativeDebug('play', 'play() rejected', String(err));
+        // Retry once after a tiny delay (helps Android WebView after src reload)
+        try {
+          await new Promise((r) => setTimeout(r, 120));
+          videoRef.current?.load();
+          await videoRef.current?.play();
+          logNativeDebug('play', 'play() retry resolved');
+        } catch (err2) {
+          logNativeDebug('play', 'play() retry rejected', String(err2));
+        }
+      }
     }
   }, [isPlaying, isPlayableSource, hasAttemptedFirstPlay, supportUsSettings, playerSettings.showSupportUsOverlay, hasActiveSubscription]);
 
