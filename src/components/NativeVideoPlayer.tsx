@@ -583,14 +583,22 @@ const NativeVideoPlayer = ({
       setIsLoading(true);
       
       // Get the actual URL to use (considering quality_urls for MP4)
-      let videoUrl = currentServer.url;
+      let videoUrl: string = currentServer.url || '';
 
       // Check if we have quality URLs for MP4
       if (sourceType === 'mp4' && currentServer.quality_urls && typeof currentServer.quality_urls === 'object') {
         const qualityUrls = currentServer.quality_urls as Record<string, string>;
+        
+        // Validate that qualityUrls has actual string values
+        const validQualityUrls = Object.entries(qualityUrls).reduce((acc, [key, value]) => {
+          if (typeof value === 'string' && value.trim()) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as Record<string, string>);
 
         const getResolution = (q: string) => parseInt(q.replace(/\D/g, '')) || 0;
-        const sortedQualities = Object.keys(qualityUrls).sort((a, b) => getResolution(a) - getResolution(b));
+        const sortedQualities = Object.keys(validQualityUrls).sort((a, b) => getResolution(a) - getResolution(b));
 
         // Native default: prefer 480p (or the lowest available) when in Auto mode.
         const defaultAutoQuality = sortedQualities.find((q) => q.includes('480')) || sortedQualities[0];
@@ -599,26 +607,30 @@ const NativeVideoPlayer = ({
           ? defaultAutoQuality
           : (currentQuality && currentQuality !== 'auto' ? currentQuality : defaultAutoQuality);
 
-        const finalQuality = desiredQuality && qualityUrls[desiredQuality] ? desiredQuality : defaultAutoQuality;
+        const finalQuality = desiredQuality && validQualityUrls[desiredQuality] ? desiredQuality : defaultAutoQuality;
 
         if (finalQuality && currentQuality !== finalQuality) {
           // Keep UI label in sync immediately so we don't briefly show 1080p.
           setCurrentQuality(finalQuality);
         }
 
-        videoUrl = (finalQuality && qualityUrls[finalQuality]) || currentServer.url;
-        logNativeDebug('loadVideo', 'Using MP4 quality URL:', {
-          autoQualityEnabled,
-          quality: finalQuality,
-          url: videoUrl?.substring(0, 80),
-        });
+        // Get the URL string - ensure it's a string, not an object
+        const qualityUrl = finalQuality ? validQualityUrls[finalQuality] : null;
+        videoUrl = (typeof qualityUrl === 'string' && qualityUrl.trim()) ? qualityUrl : (currentServer.url || '');
+        
+        logNativeDebug('loadVideo', 'Using MP4 quality URL', 
+          `quality=${finalQuality}, url=${typeof videoUrl === 'string' ? videoUrl.substring(0, 80) : 'INVALID'}`);
       }
       
-      logNativeDebug('loadVideo', `Loading ${sourceType} source:`, {
-        url: videoUrl?.substring(0, 80),
-        serverName: currentServer.server_name,
-        sourceType,
-      });
+      // Final safety check - ensure videoUrl is a valid string
+      if (typeof videoUrl !== 'string' || !videoUrl.trim()) {
+        logNativeDebug('loadVideo', 'ERROR: Invalid videoUrl', typeof videoUrl);
+        setIsLoading(false);
+        return;
+      }
+      
+      logNativeDebug('loadVideo', `Loading ${sourceType} source`, 
+        `server=${currentServer.server_name}, url=${videoUrl.substring(0, 80)}`);
       
       if (sourceType === 'hls') {
         // Use Shaka Player for HLS
@@ -632,7 +644,7 @@ const NativeVideoPlayer = ({
         }
       } else {
         // For MP4, use direct src loading for better native compatibility
-        logNativeDebug('loadVideo', 'Using direct src for MP4');
+        logNativeDebug('loadVideo', 'Using direct src for MP4', videoUrl.substring(0, 100));
         try {
           await cleanupShaka();
           
@@ -641,6 +653,7 @@ const NativeVideoPlayer = ({
           if (video) {
             video.preload = 'metadata';
             video.playsInline = true;
+            // Ensure we're setting a string URL
             video.src = videoUrl;
             video.load();
             
@@ -651,15 +664,13 @@ const NativeVideoPlayer = ({
             }, { once: true });
             
             video.addEventListener('error', (e) => {
-              logNativeDebug('loadVideo', 'MP4 load error:', {
-                error: video.error?.code,
-                message: video.error?.message,
-              });
+              logNativeDebug('loadVideo', 'MP4 load error', 
+                `code=${video.error?.code}, message=${video.error?.message}`);
             }, { once: true });
           }
         } catch (error) {
           console.error('Error loading MP4:', error);
-          logNativeDebug('loadVideo', 'MP4 load exception:', error);
+          logNativeDebug('loadVideo', 'MP4 load exception:', String(error));
         }
         setIsLoading(false);
       }
@@ -1156,9 +1167,11 @@ const NativeVideoPlayer = ({
             poster={videoPoster}
             style={{ objectFit: 'contain' }}
             playsInline
+            webkit-playsinline="true"
             preload="metadata"
-            crossOrigin="anonymous"
             controls={false}
+            // Remove crossOrigin for native MP4 to avoid CORS issues on Android
+            {...(sourceType !== 'mp4' && { crossOrigin: 'anonymous' })}
           />
         )}
 
