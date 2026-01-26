@@ -94,9 +94,18 @@ export function useNativeShakaPlayer({
     const networkQuality = getNetworkQuality();
     logDebug('getNativeConfig', 'Network quality:', networkQuality);
     
-    // Adjust buffer based on network quality
+    // Adjust buffer based on network quality - more aggressive for Android
     const getBufferGoal = () => {
       if (!isNative) return 30;
+      // Android needs larger buffers for smooth HLS playback
+      if (platform === 'android') {
+        switch (networkQuality.effectiveType) {
+          case '4g': return 30;
+          case '3g': return 45;
+          case '2g': return 60;
+          default: return 30;
+        }
+      }
       switch (networkQuality.effectiveType) {
         case '4g': return 20;
         case '3g': return 30;
@@ -113,15 +122,15 @@ export function useNativeShakaPlayer({
         // Adaptive buffer based on network - larger buffer on slow networks
         bufferingGoal: bufferGoal,
         // Quick recovery from rebuffering - smaller on fast networks
-        rebufferingGoal: isNative ? Math.max(1, bufferGoal / 10) : 2,
+        rebufferingGoal: isNative ? Math.max(2, bufferGoal / 8) : 2,
         // Reduce memory usage on mobile
         bufferBehind: isNative ? Math.min(bufferGoal, 20) : 30,
         // Faster segment fetch for responsive seeking
         retryParameters: {
-          maxAttempts: 6,
-          baseDelay: 300,
-          backoffFactor: 1.5,
-          timeout: isNative ? 12000 : 30000,
+          maxAttempts: 8,
+          baseDelay: 200,
+          backoffFactor: 1.3,
+          timeout: isNative ? 15000 : 30000,
           fuzzFactor: 0.3,
         },
         // Enable low latency for live streams
@@ -130,19 +139,19 @@ export function useNativeShakaPlayer({
         preferNativeHls: platform === 'ios',
         // Use MediaSource more efficiently
         useNativeHlsOnSafari: platform === 'ios',
-        // Segment prefetch for smoother playback
-        segmentPrefetchLimit: isNative ? 3 : 4,
+        // Segment prefetch for smoother playback - more for Android
+        segmentPrefetchLimit: platform === 'android' ? 5 : (isNative ? 3 : 4),
         // Reduce start latency
-        smallGapLimit: 0.3,
+        smallGapLimit: 0.5,
         jumpLargeGaps: true,
-        // Stall detection - more aggressive on mobile
+        // Stall detection - more tolerant on Android
         stallEnabled: true,
-        stallThreshold: isNative ? 0.5 : 1,
-        stallSkip: isNative ? 0.15 : 0.1,
+        stallThreshold: platform === 'android' ? 1.0 : (isNative ? 0.5 : 1),
+        stallSkip: platform === 'android' ? 0.3 : (isNative ? 0.15 : 0.1),
         // Safe seek adjustment
         safeSeekOffset: 0,
-        // Gap detection - more tolerant on mobile
-        gapDetectionThreshold: isNative ? 0.3 : 0.5,
+        // Gap detection - more tolerant on Android
+        gapDetectionThreshold: platform === 'android' ? 0.8 : (isNative ? 0.3 : 0.5),
         // Auto recovery from errors
         failureCallback: () => {
           logDebug('streaming', 'Failure callback triggered, attempting recovery');
@@ -153,47 +162,56 @@ export function useNativeShakaPlayer({
         ignoreTextStreamFailures: true,
         // Don't fail on audio/video track failures
         alwaysStreamText: false,
+        // More forgiving for segment availability
+        inaccurateManifestTolerance: platform === 'android' ? 5 : 2,
+        // Don't dispatch all events - reduce overhead
+        dispatchAllEmsgBoxes: false,
       },
       abr: {
         enabled: autoQualityEnabled,
-        // Dynamic bandwidth estimate based on network
-        defaultBandwidthEstimate: networkQuality.effectiveType === '4g' 
-          ? Math.max(estimatedBandwidth, 8000000) 
-          : networkQuality.effectiveType === '3g' 
-            ? 2000000 
-            : 500000,
+        // Dynamic bandwidth estimate based on network - start lower on Android
+        defaultBandwidthEstimate: platform === 'android'
+          ? (networkQuality.effectiveType === '4g' ? 5000000 : networkQuality.effectiveType === '3g' ? 1500000 : 500000)
+          : (networkQuality.effectiveType === '4g' 
+            ? Math.max(estimatedBandwidth, 8000000) 
+            : networkQuality.effectiveType === '3g' 
+              ? 2000000 
+              : 500000),
         // More conservative switching on mobile to reduce buffering
-        switchInterval: isNative ? 6 : 4,
+        switchInterval: platform === 'android' ? 8 : (isNative ? 6 : 4),
         // Higher upgrade threshold for stability - don't upgrade too quickly
-        bandwidthUpgradeTarget: isNative ? 0.70 : 0.85,
+        bandwidthUpgradeTarget: platform === 'android' ? 0.60 : (isNative ? 0.70 : 0.85),
         // Lower downgrade threshold to prevent stuttering - downgrade faster
-        bandwidthDowngradeTarget: isNative ? 0.85 : 0.95,
+        bandwidthDowngradeTarget: platform === 'android' ? 0.90 : (isNative ? 0.85 : 0.95),
         // Limit resolution on mobile for battery/data
         restrictions: isNative ? {
-          maxHeight: platform === 'ios' ? 1080 : 1080,
+          maxHeight: 1080,
           maxWidth: 1920,
-          maxBandwidth: networkQuality.effectiveType === '4g' 
-            ? 12000000 
-            : networkQuality.effectiveType === '3g' 
-              ? 4000000 
-              : 1500000,
+          // Be more conservative on Android
+          maxBandwidth: platform === 'android'
+            ? (networkQuality.effectiveType === '4g' ? 8000000 : networkQuality.effectiveType === '3g' ? 3000000 : 1000000)
+            : (networkQuality.effectiveType === '4g' 
+              ? 12000000 
+              : networkQuality.effectiveType === '3g' 
+                ? 4000000 
+                : 1500000),
         } : {},
         // Ignore device pixel ratio for consistent behavior
         ignoreDevicePixelRatio: true,
         // Don't clear buffer on switch - smoother transitions
         clearBufferSwitch: false,
-        // Safer switching margin
-        safeMarginSwitch: isNative ? 3 : 1,
+        // Safer switching margin - larger on Android
+        safeMarginSwitch: platform === 'android' ? 5 : (isNative ? 3 : 1),
         // Cache bandwidth estimate
         cacheLoadThreshold: 20,
       },
       manifest: {
-        // Faster manifest parsing
+        // Faster manifest parsing with more retries on Android
         retryParameters: {
-          maxAttempts: 5,
-          baseDelay: 300,
-          backoffFactor: 1.5,
-          timeout: isNative ? 8000 : 20000,
+          maxAttempts: platform === 'android' ? 8 : 5,
+          baseDelay: 200,
+          backoffFactor: 1.3,
+          timeout: platform === 'android' ? 12000 : (isNative ? 8000 : 20000),
           fuzzFactor: 0.3,
         },
         // Parse HLS faster
@@ -204,6 +222,8 @@ export function useNativeShakaPlayer({
           useFullSegmentsForStartTime: isNative,
           // Don't ignore text stream failures
           ignoreTextStreamFailures: true,
+          // More tolerant parsing on Android
+          mediaPlaylistFullMimeType: 'application/x-mpegURL',
         },
         // DASH optimizations
         dash: {
@@ -218,6 +238,8 @@ export function useNativeShakaPlayer({
         disableAudio: false,
         disableVideo: false,
         disableText: false,
+        // Availability window override for Android - helps with segment availability
+        availabilityWindowOverride: platform === 'android' ? 120 : undefined,
       },
       drm: {
         // DRM timeout adjustments for mobile
@@ -256,34 +278,66 @@ export function useNativeShakaPlayer({
       };
     }
 
-    // Android-specific optimizations
+    // Android-specific optimizations - critical for HLS playback
     if (platform === 'android') {
-      logDebug('getNativeConfig', 'Applying Android-specific optimizations');
+      logDebug('getNativeConfig', 'Applying Android-specific HLS optimizations');
       return {
         ...baseConfig,
         streaming: {
           ...baseConfig.streaming,
-          // Android can handle larger buffers
-          bufferingGoal: Math.max(bufferGoal, 25),
-          bufferBehind: 25,
+          // Android WebView needs more buffer for HLS
+          bufferingGoal: Math.max(bufferGoal, 35),
+          rebufferingGoal: 4,
+          bufferBehind: 30,
           // Force gap jumping on Android for better recovery
           jumpLargeGaps: true,
-          stallSkip: 0.25,
-          // More aggressive stall recovery on Android
-          stallThreshold: 0.4,
+          stallSkip: 0.5,
+          // More tolerant stall recovery on Android
+          stallThreshold: 1.5,
           // Larger prefetch for smoother playback
-          segmentPrefetchLimit: 4,
+          segmentPrefetchLimit: 6,
+          // More forgiving gap detection
+          gapDetectionThreshold: 1.0,
+          smallGapLimit: 1.0,
+          // Disable native HLS on Android (use Shaka's MSE)
+          preferNativeHls: false,
+          useNativeHlsOnSafari: false,
+          // Higher tolerance for segment timing
+          inaccurateManifestTolerance: 8,
+          // Force lower latency start
+          startAtSegmentBoundary: false,
+          // Auto low latency mode off for VOD stability
+          autoLowLatencyMode: false,
         },
         abr: {
           ...baseConfig.abr,
-          // Android can handle higher bitrates
+          // Start with lower bandwidth estimate on Android
+          defaultBandwidthEstimate: 3000000,
+          // Longer switch interval for stability
+          switchInterval: 10,
+          // Very conservative upgrade threshold
+          bandwidthUpgradeTarget: 0.55,
+          // Quick downgrade to prevent buffering
+          bandwidthDowngradeTarget: 0.92,
+          // Larger safe margin
+          safeMarginSwitch: 6,
           restrictions: {
-            maxHeight: 1080,
-            maxWidth: 1920,
-            maxBandwidth: networkQuality.effectiveType === '4g' ? 15000000 : baseConfig.abr.restrictions.maxBandwidth,
+            maxHeight: 720, // Start with 720p max on Android for stability
+            maxWidth: 1280,
+            maxBandwidth: networkQuality.effectiveType === '4g' ? 6000000 : 2500000,
           },
-          // Slightly faster switching on Android
-          switchInterval: 5,
+        },
+        manifest: {
+          ...baseConfig.manifest,
+          retryParameters: {
+            maxAttempts: 10,
+            baseDelay: 150,
+            backoffFactor: 1.2,
+            timeout: 15000,
+            fuzzFactor: 0.2,
+          },
+          // Larger availability window for Android
+          availabilityWindowOverride: 180,
         },
       };
     }
@@ -360,20 +414,39 @@ export function useNativeShakaPlayer({
 
       player.addEventListener('buffering', (event: any) => {
         logDebug('buffering', event.buffering ? 'Started buffering' : 'Finished buffering');
+        // On Android, if buffering takes too long, try to nudge playback
+        if (event.buffering && platform === 'android' && videoRef.current) {
+          setTimeout(() => {
+            if (videoRef.current && videoRef.current.paused && videoRef.current.readyState >= 2) {
+              logDebug('buffering', 'Auto-resuming after buffer on Android');
+              videoRef.current.play().catch(() => {});
+            }
+          }, 2000);
+        }
       });
 
       player.addEventListener('stalldetected', () => {
         console.warn('Stall detected, attempting recovery');
         logDebug('stalldetected', 'Attempting recovery...');
-        // On native, try to recover from stalls
+        // On native, try to recover from stalls - more aggressive on Android
         if (isNative && videoRef.current) {
           const currentTime = videoRef.current.currentTime;
-          // Skip forward slightly to recover
-          videoRef.current.currentTime = currentTime + 0.2;
-          // Also try to resume playback
+          // Skip forward slightly to recover - larger skip on Android
+          const skipAmount = platform === 'android' ? 0.5 : 0.2;
+          videoRef.current.currentTime = currentTime + skipAmount;
+          // Also try to resume playback with retry
           setTimeout(() => {
-            videoRef.current?.play().catch(() => {});
-          }, 100);
+            if (videoRef.current) {
+              videoRef.current.play().catch(() => {
+                // Retry after another delay on Android
+                if (platform === 'android') {
+                  setTimeout(() => {
+                    videoRef.current?.play().catch(() => {});
+                  }, 500);
+                }
+              });
+            }
+          }, 150);
         }
       });
 
@@ -406,7 +479,7 @@ export function useNativeShakaPlayer({
   // Load a video source
   const loadSource = useCallback(async (url: string, mimeType?: string) => {
     setIsLoading(true);
-    logDebug('loadSource', 'Loading source:', { url: url.substring(0, 100), mimeType });
+    logDebug('loadSource', 'Loading source:', { url: url.substring(0, 100), mimeType, platform });
     
     let player = shakaPlayerRef.current;
     
@@ -425,9 +498,10 @@ export function useNativeShakaPlayer({
       logDebug('loadSource', 'Unloading previous content');
       await player.unload();
       
-      // Wait a bit for cleanup on native - important for stability
+      // Wait a bit for cleanup on native - longer delay on Android for stability
       if (isNative) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        const cleanupDelay = platform === 'android' ? 200 : 100;
+        await new Promise(resolve => setTimeout(resolve, cleanupDelay));
       }
 
       // Auto-detect mime type if not provided
@@ -443,14 +517,56 @@ export function useNativeShakaPlayer({
       
       logDebug('loadSource', 'Loading with mime type:', finalMimeType || 'auto-detect');
 
-      // Load new source
+      // On Android, ensure video element is ready before loading
+      if (platform === 'android' && videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+        // Reset any error state
+        videoRef.current.load();
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      // Load new source with retry logic for Android
       const loadStartTime = Date.now();
-      await player.load(url, undefined, finalMimeType);
-      logDebug('loadSource', `Loaded in ${Date.now() - loadStartTime}ms`);
+      let loadAttempt = 0;
+      const maxAttempts = platform === 'android' ? 3 : 1;
+      let lastError: any = null;
+      
+      while (loadAttempt < maxAttempts) {
+        try {
+          logDebug('loadSource', `Load attempt ${loadAttempt + 1}/${maxAttempts}`);
+          await player.load(url, undefined, finalMimeType);
+          logDebug('loadSource', `Loaded in ${Date.now() - loadStartTime}ms`);
+          break;
+        } catch (err: any) {
+          lastError = err;
+          loadAttempt++;
+          if (loadAttempt < maxAttempts) {
+            logDebug('loadSource', `Load failed, retrying in 500ms...`, err.message);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Re-apply config before retry
+            player.configure(getNativeConfig());
+          }
+        }
+      }
+      
+      if (loadAttempt >= maxAttempts && lastError) {
+        throw lastError;
+      }
 
       // Get available tracks
       const variantTracks = player.getVariantTracks();
       logDebug('loadSource', 'Available variant tracks:', variantTracks.length);
+      
+      // On Android, prefer lower qualities initially for smoother playback
+      if (platform === 'android' && variantTracks.length > 0) {
+        // Find a 480p or 360p track to start with
+        const lowerQualityTrack = variantTracks.find((t: any) => t.height === 480 || t.height === 360);
+        if (lowerQualityTrack) {
+          logDebug('loadSource', 'Selecting lower quality track for Android:', lowerQualityTrack.height);
+          player.selectVariantTrack(lowerQualityTrack, false);
+        }
+      }
       
       const qualities = [...new Set(variantTracks.map((t: any) => `${t.height}p`))]
         .filter((q: string) => q !== 'undefinedp' && q !== 'nullp')
@@ -473,6 +589,15 @@ export function useNativeShakaPlayer({
       setIsLoading(false);
       onLoaded?.();
       
+      // On Android, try to start playback after a short delay if video is ready
+      if (platform === 'android' && videoRef.current) {
+        setTimeout(() => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            logDebug('loadSource', 'Android: Video ready, can play');
+          }
+        }, 300);
+      }
+      
       return true;
     } catch (error: any) {
       console.error('Failed to load video source:', error);
@@ -480,12 +605,13 @@ export function useNativeShakaPlayer({
         code: error.code,
         message: error.message,
         data: error.data,
+        category: error.category,
       });
       setIsLoading(false);
       onError?.(error as Error);
       return false;
     }
-  }, [initPlayer, isNative, onQualitiesLoaded, onAudioTracksLoaded, onTextTracksLoaded, onLoaded, onError]);
+  }, [initPlayer, isNative, platform, getNativeConfig, onQualitiesLoaded, onAudioTracksLoaded, onTextTracksLoaded, onLoaded, onError]);
 
   // Set video quality
   const setQuality = useCallback((quality: string) => {
