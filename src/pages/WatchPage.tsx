@@ -772,6 +772,17 @@ const WatchPage = () => {
       ? currentEpisode.still_path 
       : content?.backdrop_path;
     
+    // Get skip timestamps - from episode for series, from content for movies
+    const introStart = isSeriesContent 
+      ? (currentEpisode as any)?.intro_start ?? 0 
+      : (content as any)?.intro_start ?? 0;
+    const introEnd = isSeriesContent 
+      ? (currentEpisode as any)?.intro_end ?? undefined 
+      : (content as any)?.intro_end ?? undefined;
+    const outroStart = isSeriesContent 
+      ? (currentEpisode as any)?.outro_start ?? undefined 
+      : (content as any)?.outro_start ?? undefined;
+    
     return (
       <VideoPlayer 
         videoSources={videoSources}
@@ -788,9 +799,12 @@ const WatchPage = () => {
         currentEpisodeId={currentEpisode?.id}
         episodes={isSeriesContent ? displayEpisodes : []}
         onEpisodeSelect={isSeriesContent ? fetchVideoSource : undefined}
+        introStartTime={introStart}
+        introEndTime={introEnd}
+        outroStartTime={outroStart}
       />
     );
-  }, [videoSources, content?.backdrop_path, content?.id, videoPlayerAccessType, content?.exclude_from_plan, content?.price, content?.purchase_period, content?.title, isSeriesContent, currentEpisode?.price, currentEpisode?.id, currentEpisode?.still_path, contentType, id, displayEpisodes]);
+  }, [videoSources, content?.backdrop_path, content?.id, videoPlayerAccessType, content?.exclude_from_plan, content?.price, content?.purchase_period, content?.title, isSeriesContent, currentEpisode?.price, currentEpisode?.id, currentEpisode?.still_path, contentType, id, displayEpisodes, content, currentEpisode]);
 
   if (loading) {
     return (
