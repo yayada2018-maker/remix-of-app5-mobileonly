@@ -4,7 +4,8 @@ import {
   Loader2, SkipBack, SkipForward, Crown,
   Server as ServerIcon, CreditCard, ArrowLeft, Lock, ListVideo, Heart
 } from "lucide-react";
-import { SkipIntroButton } from "@/components/video/SkipIntroButton";
+import { SkipButton } from "@/components/video/SkipButton";
+import { useSkipSegments } from "@/hooks/useSkipSegments";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -74,9 +75,10 @@ interface NativeVideoPlayerProps {
   movieId?: string;
   onEnded?: () => void;
   onFullscreenChange?: (isFullscreen: boolean) => void;
-  // Skip Intro feature
+  // Skip Intro/Outro feature
   introStartTime?: number;  // When intro starts (usually 0)
   introEndTime?: number;    // When intro ends (skip target in seconds)
+  outroStartTime?: number;  // When outro/credits start
 }
 
 // Debug logging for native player
@@ -183,7 +185,8 @@ const NativeVideoPlayer = ({
   onEnded,
   onFullscreenChange,
   introStartTime = 0,
-  introEndTime
+  introEndTime,
+  outroStartTime
 }: NativeVideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -856,12 +859,23 @@ const NativeVideoPlayer = ({
     videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
   };
 
-  // Skip Intro handler - jumps to the end of intro
-  const handleSkipIntro = useCallback(() => {
-    if (!videoRef.current || !introEndTime) return;
-    logNativeDebug('skipIntro', 'Skipping intro to', introEndTime);
-    videoRef.current.currentTime = introEndTime;
-  }, [introEndTime]);
+  // Skip segment handler - jumps to the end of active segment (intro/outro)
+  const handleSkipSegment = useCallback((targetTime: number) => {
+    if (!videoRef.current) return;
+    logNativeDebug('skipSegment', 'Skipping to', targetTime);
+    videoRef.current.currentTime = targetTime;
+  }, []);
+
+  // Use skip segments hook for intro/outro buttons
+  const { activeSegment, handleSkip: handleSkipButtonClick, shouldShowButton: shouldShowSkipButton } = useSkipSegments({
+    currentTime,
+    duration,
+    introStart: introStartTime,
+    introEnd: introEndTime,
+    outroStart: outroStartTime,
+    onSkip: handleSkipSegment,
+    isVisible: showControls || !isPlaying,
+  });
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1263,14 +1277,12 @@ const NativeVideoPlayer = ({
           />
         )}
 
-        {/* Skip Intro Button - Shows during intro portion of video */}
-        {isPlayableSource && !isLocked && !accessLoading && !isScreenLocked && introEndTime && introEndTime > 0 && (
-          <SkipIntroButton
-            currentTime={currentTime}
-            introStartTime={introStartTime}
-            introEndTime={introEndTime}
-            onSkipIntro={handleSkipIntro}
-            isVisible={showControls || !isPlaying}
+        {/* Skip Intro/Outro Button - Shows during intro or outro portion of video */}
+        {isPlayableSource && !isLocked && !accessLoading && !isScreenLocked && activeSegment && (
+          <SkipButton
+            label={activeSegment.label}
+            onSkip={handleSkipButtonClick}
+            isVisible={shouldShowSkipButton}
           />
         )}
 

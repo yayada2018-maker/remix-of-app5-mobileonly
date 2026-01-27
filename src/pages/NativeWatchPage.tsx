@@ -693,6 +693,17 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
       ? currentEpisode.still_path 
       : content?.backdrop_path;
     
+    // Get skip timestamps - from episode for series, from content for movies
+    const introStart = isSeriesContent 
+      ? (currentEpisode as any)?.intro_start ?? 0 
+      : (content as any)?.intro_start ?? 0;
+    const introEnd = isSeriesContent 
+      ? (currentEpisode as any)?.intro_end ?? undefined 
+      : (content as any)?.intro_end ?? undefined;
+    const outroStart = isSeriesContent 
+      ? (currentEpisode as any)?.outro_start ?? undefined 
+      : (content as any)?.outro_start ?? undefined;
+    
     return (
       <NativeVideoPlayer 
         videoSources={videoSources}
@@ -710,6 +721,9 @@ const [castMembers, setCastMembers] = useState<any[]>([]);
         episodes={isSeriesContent ? displayEpisodes : []}
         onEpisodeSelect={isSeriesContent ? fetchVideoSource : undefined}
         onFullscreenChange={setIsVideoFullscreen}
+        introStartTime={introStart}
+        introEndTime={introEnd}
+        outroStartTime={outroStart}
       />
     );
   }, [videoSources, content, videoPlayerAccessType, isSeriesContent, currentEpisode, contentType, id, displayEpisodes]);

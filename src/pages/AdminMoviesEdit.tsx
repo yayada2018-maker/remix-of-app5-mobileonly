@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContentInfoBoxes } from "@/components/admin/ContentInfoBoxes";
+import { SkipTimestampFields } from "@/components/admin/SkipTimestampFields";
 
 interface VideoSource {
   id?: string;
@@ -55,6 +56,9 @@ const AdminMoviesEdit = () => {
     exclude_from_plan: false,
     collection_id: null,
     last_content_update: null,
+    intro_start: 0,
+    intro_end: null,
+    outro_start: null,
   });
   
   const [videoSources, setVideoSources] = useState<VideoSource[]>([]);
@@ -127,6 +131,9 @@ const AdminMoviesEdit = () => {
         exclude_from_plan: movie.exclude_from_plan || false,
         collection_id: movie.collection_id || null,
         last_content_update: (movie as any).last_content_update ? new Date((movie as any).last_content_update) : null,
+        intro_start: (movie as any).intro_start ?? 0,
+        intro_end: (movie as any).intro_end ?? null,
+        outro_start: (movie as any).outro_start ?? null,
       });
     }
   }, [movie]);
@@ -533,6 +540,16 @@ const AdminMoviesEdit = () => {
                 Enter a YouTube URL or self-hosted video URL
               </p>
             </div>
+
+            {/* Skip Intro/Outro Timestamps */}
+            <SkipTimestampFields
+              introStart={editedMovie.intro_start}
+              introEnd={editedMovie.intro_end}
+              outroStart={editedMovie.outro_start}
+              onIntroStartChange={(value) => setEditedMovie({ ...editedMovie, intro_start: value })}
+              onIntroEndChange={(value) => setEditedMovie({ ...editedMovie, intro_end: value })}
+              onOutroStartChange={(value) => setEditedMovie({ ...editedMovie, outro_start: value })}
+            />
 
             {/* Content Info Boxes */}
             <ContentInfoBoxes

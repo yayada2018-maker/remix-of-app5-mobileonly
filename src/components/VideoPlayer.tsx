@@ -40,7 +40,8 @@ import { VideoAdPlayer } from '@/components/ads/VideoAdPlayer';
 import { useSiteSettings } from '@/contexts/SiteSettingsContext';
 import AppLockOverlay from '@/components/AppLockOverlay';
 import { useAdMobRewarded } from '@/hooks/useAdMobRewarded';
-import { SkipIntroButton } from '@/components/video/SkipIntroButton';
+import { SkipButton } from '@/components/video/SkipButton';
+import { useSkipSegments } from '@/hooks/useSkipSegments';
 
 interface VideoPlayerProps {
   videoSources: VideoSource[];
@@ -60,9 +61,10 @@ interface VideoPlayerProps {
   title?: string;
   movieId?: string;
   onEnded?: () => void;
-  // Skip Intro feature
+  // Skip Intro/Outro feature
   introStartTime?: number;  // When intro starts (usually 0)
   introEndTime?: number;    // When intro ends (skip target in seconds)
+  outroStartTime?: number;  // When outro/credits start
 }
 
 // Helpers
@@ -218,7 +220,8 @@ const VideoPlayer = ({
   movieId,
   onEnded,
   introStartTime = 0,
-  introEndTime
+  introEndTime,
+  outroStartTime
 }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1630,12 +1633,23 @@ const VideoPlayer = ({
     videoRef.current.currentTime = Math.min(duration, videoRef.current.currentTime + 10);
   };
 
-  // Skip Intro handler - jumps to the end of intro
-  const handleSkipIntro = useCallback(() => {
-    if (!videoRef.current || !introEndTime) return;
-    console.log('[VideoPlayer] Skipping intro to', introEndTime);
-    videoRef.current.currentTime = introEndTime;
-  }, [introEndTime]);
+  // Skip segment handler - jumps to the end of active segment (intro/outro)
+  const handleSkipSegment = useCallback((targetTime: number) => {
+    if (!videoRef.current) return;
+    console.log('[VideoPlayer] Skipping to', targetTime);
+    videoRef.current.currentTime = targetTime;
+  }, []);
+
+  // Use skip segments hook for intro/outro buttons
+  const { activeSegment, handleSkip: handleSkipButtonClick, shouldShowButton: shouldShowSkipButton } = useSkipSegments({
+    currentTime,
+    duration,
+    introStart: introStartTime,
+    introEnd: introEndTime,
+    outroStart: outroStartTime,
+    onSkip: handleSkipSegment,
+    isVisible: showControls || !isPlaying,
+  });
 
   const handlePlaybackSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
@@ -2047,14 +2061,12 @@ const VideoPlayer = ({
         </button>
       )}
 
-      {/* Skip Intro Button - Shows during intro portion of video */}
-      {sourceType !== "embed" && sourceType !== "iframe" && !isLocked && !accessLoading && !allSourcesMobileOnly && !allSourcesWebOnly && introEndTime && introEndTime > 0 && (
-        <SkipIntroButton
-          currentTime={currentTime}
-          introStartTime={introStartTime}
-          introEndTime={introEndTime}
-          onSkipIntro={handleSkipIntro}
-          isVisible={showControls || !isPlaying}
+      {/* Skip Intro/Outro Button - Shows during intro or outro portion of video */}
+      {sourceType !== "embed" && sourceType !== "iframe" && !isLocked && !accessLoading && !allSourcesMobileOnly && !allSourcesWebOnly && activeSegment && (
+        <SkipButton
+          label={activeSegment.label}
+          onSkip={handleSkipButtonClick}
+          isVisible={shouldShowSkipButton}
         />
       )}
 

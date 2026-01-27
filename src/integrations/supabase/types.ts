@@ -590,9 +590,12 @@ export type Database = {
           exclude_from_plan: boolean | null
           genre: string | null
           id: string
+          intro_end: number | null
+          intro_start: number | null
           last_content_update: string | null
           max_devices: number | null
           network_id: string | null
+          outro_start: number | null
           overview: string | null
           popularity: number | null
           poster_path: string | null
@@ -625,9 +628,12 @@ export type Database = {
           exclude_from_plan?: boolean | null
           genre?: string | null
           id?: string
+          intro_end?: number | null
+          intro_start?: number | null
           last_content_update?: string | null
           max_devices?: number | null
           network_id?: string | null
+          outro_start?: number | null
           overview?: string | null
           popularity?: number | null
           poster_path?: string | null
@@ -660,9 +666,12 @@ export type Database = {
           exclude_from_plan?: boolean | null
           genre?: string | null
           id?: string
+          intro_end?: number | null
+          intro_start?: number | null
           last_content_update?: string | null
           max_devices?: number | null
           network_id?: string | null
+          outro_start?: number | null
           overview?: string | null
           popularity?: number | null
           poster_path?: string | null
@@ -975,6 +984,9 @@ export type Database = {
           duration: number | null
           episode_number: number
           id: string
+          intro_end: number | null
+          intro_start: number | null
+          outro_start: number | null
           overview: string | null
           price: number | null
           season_id: string | null
@@ -996,6 +1008,9 @@ export type Database = {
           duration?: number | null
           episode_number: number
           id?: string
+          intro_end?: number | null
+          intro_start?: number | null
+          outro_start?: number | null
           overview?: string | null
           price?: number | null
           season_id?: string | null
@@ -1017,6 +1032,9 @@ export type Database = {
           duration?: number | null
           episode_number?: number
           id?: string
+          intro_end?: number | null
+          intro_start?: number | null
+          outro_start?: number | null
           overview?: string | null
           price?: number | null
           season_id?: string | null

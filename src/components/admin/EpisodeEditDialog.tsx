@@ -8,6 +8,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { SkipTimestampFields } from "./SkipTimestampFields";
 
 interface VideoSource {
   server: string;
@@ -46,13 +47,31 @@ export function EpisodeEditDialog({ episode, open, onOpenChange, seriesId }: Epi
   const [access, setAccess] = useState(episode?.access || "free");
   const [videoSources, setVideoSources] = useState<VideoSource[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
+  const [introStart, setIntroStart] = useState<number | null>(0);
+  const [introEnd, setIntroEnd] = useState<number | null>(null);
+  const [outroStart, setOutroStart] = useState<number | null>(null);
 
-  // Fetch video sources from video_sources table
+  // Fetch video sources and episode data from database
   useEffect(() => {
     if (open && episode) {
       setAccess(episode.access || "free");
       setLoadingSources(true);
       
+      // Fetch episode skip timestamps
+      supabase
+        .from("episodes")
+        .select("intro_start, intro_end, outro_start")
+        .eq("id", episode.id)
+        .single()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            setIntroStart((data as any).intro_start ?? 0);
+            setIntroEnd((data as any).intro_end ?? null);
+            setOutroStart((data as any).outro_start ?? null);
+          }
+        });
+      
+      // Fetch video sources
       supabase
         .from("video_sources")
         .select("*")
@@ -89,11 +108,14 @@ export function EpisodeEditDialog({ episode, open, onOpenChange, seriesId }: Epi
     mutationFn: async () => {
       if (!episode) return;
 
-      // Update episode access
+      // Update episode access and skip timestamps
       const { error: episodeError } = await supabase
         .from("episodes")
         .update({
           access_type: access as "free" | "membership" | "purchase",
+          intro_start: introStart,
+          intro_end: introEnd,
+          outro_start: outroStart,
         })
         .eq("id", episode.id);
 
@@ -226,6 +248,16 @@ export function EpisodeEditDialog({ episode, open, onOpenChange, seriesId }: Epi
               </SelectContent>
             </Select>
           </div>
+
+          {/* Skip Intro/Outro Timestamps */}
+          <SkipTimestampFields
+            introStart={introStart}
+            introEnd={introEnd}
+            outroStart={outroStart}
+            onIntroStartChange={setIntroStart}
+            onIntroEndChange={setIntroEnd}
+            onOutroStartChange={setOutroStart}
+          />
 
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
