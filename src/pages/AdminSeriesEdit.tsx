@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SkipTimestampFields } from "@/components/admin/SkipTimestampFields";
 import { ImportEpisodeSourcesDialog } from "@/components/admin/ImportEpisodeSourcesDialog";
 import { PricingPreview } from "@/components/admin/PricingPreview";
 import { SeasonDialog } from "@/components/admin/SeasonDialog";
@@ -101,6 +102,9 @@ const SeriesEdit = () => {
         recent_episode: (series as any).recent_episode || "",
         collection_id: series.collection_id || null,
         last_content_update: (series as any).last_content_update ? new Date((series as any).last_content_update) : null,
+        intro_start: (series as any).intro_start ?? 0,
+        intro_end: (series as any).intro_end ?? null,
+        outro_start: (series as any).outro_start ?? null,
       });
     }
   }, [isEditingInfo, series, editedSeries]);
@@ -149,8 +153,15 @@ const SeriesEdit = () => {
       if (updates.currency && updates.currency !== series?.currency) {
         episodeUpdates.currency = updates.currency;
       }
-      if (updates.purchase_period !== undefined && updates.purchase_period !== series?.purchase_period) {
-        // Note: episodes don't have purchase_period, but we track it for consistency
+      // Sync skip timestamps to all episodes
+      if (updates.intro_start !== undefined) {
+        episodeUpdates.intro_start = updates.intro_start;
+      }
+      if (updates.intro_end !== undefined) {
+        episodeUpdates.intro_end = updates.intro_end;
+      }
+      if (updates.outro_start !== undefined) {
+        episodeUpdates.outro_start = updates.outro_start;
       }
 
       // Only update episodes if there are changes to sync
@@ -498,24 +509,36 @@ const SeriesEdit = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="access_type">Access Type</Label>
-                    <Select
-                      value={editedSeries.access_type}
-                      onValueChange={(value) =>
-                        setEditedSeries({ ...editedSeries, access_type: value })
-                      }
-                    >
-                      <SelectTrigger id="access_type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="free">Free</SelectItem>
-                        <SelectItem value="membership">Membership</SelectItem>
-                        <SelectItem value="purchase">Purchase</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="access_type">Access Type</Label>
+                      <Select
+                        value={editedSeries.access_type}
+                        onValueChange={(value) =>
+                          setEditedSeries({ ...editedSeries, access_type: value })
+                        }
+                      >
+                        <SelectTrigger id="access_type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="free">Free</SelectItem>
+                          <SelectItem value="membership">Membership</SelectItem>
+                          <SelectItem value="purchase">Purchase</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
+
+                  {/* Skip Intro/Outro Timestamps for Series (applies to all episodes as default) */}
+                  <SkipTimestampFields
+                    introStart={editedSeries.intro_start}
+                    introEnd={editedSeries.intro_end}
+                    outroStart={editedSeries.outro_start}
+                    onIntroStartChange={(value) => setEditedSeries({ ...editedSeries, intro_start: value })}
+                    onIntroEndChange={(value) => setEditedSeries({ ...editedSeries, intro_end: value })}
+                    onOutroStartChange={(value) => setEditedSeries({ ...editedSeries, outro_start: value })}
+                  />
 
                   <div className="space-y-2">
                     <Label htmlFor="overview">Overview</Label>
