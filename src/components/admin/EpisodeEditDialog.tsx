@@ -235,29 +235,32 @@ export function EpisodeEditDialog({ episode, open, onOpenChange, seriesId }: Epi
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="access">Version (Access Type)</Label>
-            <Select value={access} onValueChange={setAccess}>
-              <SelectTrigger id="access">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="membership">Membership</SelectItem>
-                <SelectItem value="purchase">Purchase</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Episode Settings - Version and Skip Intro side by side */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="access">Version (Access Type)</Label>
+              <Select value={access} onValueChange={setAccess}>
+                <SelectTrigger id="access">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="membership">Membership</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Skip Intro/Outro Timestamps */}
-          <SkipTimestampFields
-            introStart={introStart}
-            introEnd={introEnd}
-            outroStart={outroStart}
-            onIntroStartChange={setIntroStart}
-            onIntroEndChange={setIntroEnd}
-            onOutroStartChange={setOutroStart}
-          />
+            {/* Skip Intro/Outro Timestamps inline */}
+            <SkipTimestampFields
+              introStart={introStart}
+              introEnd={introEnd}
+              outroStart={outroStart}
+              onIntroStartChange={setIntroStart}
+              onIntroEndChange={setIntroEnd}
+              onOutroStartChange={setOutroStart}
+            />
+          </div>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
