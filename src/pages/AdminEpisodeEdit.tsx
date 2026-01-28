@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SkipTimestampFields } from "@/components/admin/SkipTimestampFields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -36,9 +35,6 @@ const AdminEpisodeEdit = () => {
   const [access, setAccess] = useState("free");
   const [videoSources, setVideoSources] = useState<VideoSource[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
-  const [introStart, setIntroStart] = useState<number | null>(0);
-  const [introEnd, setIntroEnd] = useState<number | null>(null);
-  const [outroStart, setOutroStart] = useState<number | null>(null);
 
   // Fetch series by TMDB ID
   const { data: series } = useQuery({
@@ -95,9 +91,6 @@ const AdminEpisodeEdit = () => {
   useEffect(() => {
     if (episodeData) {
       setAccess(episodeData.access_type || "free");
-      setIntroStart((episodeData as any).intro_start ?? 0);
-      setIntroEnd((episodeData as any).intro_end ?? null);
-      setOutroStart((episodeData as any).outro_start ?? null);
       setLoadingSources(true);
       
       supabase
@@ -132,14 +125,11 @@ const AdminEpisodeEdit = () => {
     mutationFn: async () => {
       if (!episodeData) return;
 
-      // Update episode access and skip timestamps
+      // Update episode access
       const { error: episodeError } = await supabase
         .from("episodes")
         .update({
           access_type: access as "free" | "membership" | "purchase",
-          intro_start: introStart,
-          intro_end: introEnd,
-          outro_start: outroStart,
         })
         .eq("id", episodeData.id);
 
@@ -284,35 +274,24 @@ const AdminEpisodeEdit = () => {
           </Button>
         </div>
 
+        {/* Episode Access Type */}
         <Card>
           <CardHeader>
             <CardTitle>Episode Settings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="access">Version (Access Type)</Label>
-                <Select value={access} onValueChange={setAccess}>
-                  <SelectTrigger id="access">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="membership">Membership</SelectItem>
-                    <SelectItem value="purchase">Purchase</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Skip Intro/Outro Timestamps */}
-              <SkipTimestampFields
-                introStart={introStart}
-                introEnd={introEnd}
-                outroStart={outroStart}
-                onIntroStartChange={setIntroStart}
-                onIntroEndChange={setIntroEnd}
-                onOutroStartChange={setOutroStart}
-              />
+            <div className="space-y-2 max-w-xs">
+              <Label htmlFor="access">Version (Access Type)</Label>
+              <Select value={access} onValueChange={setAccess}>
+                <SelectTrigger id="access">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="free">Free</SelectItem>
+                  <SelectItem value="membership">Membership</SelectItem>
+                  <SelectItem value="purchase">Purchase</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
