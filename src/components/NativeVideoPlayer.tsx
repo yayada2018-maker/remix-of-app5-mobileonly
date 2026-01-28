@@ -874,7 +874,8 @@ const NativeVideoPlayer = ({
     introEnd: introEndTime,
     outroStart: outroStartTime,
     onSkip: handleSkipSegment,
-    isVisible: showControls || !isPlaying,
+    // Keep skip button visible even when controls auto-hide
+    isVisible: true,
   });
 
   const formatTime = (seconds: number) => {
