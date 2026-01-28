@@ -1648,8 +1648,7 @@ const VideoPlayer = ({
     introEnd: introEndTime,
     outroStart: outroStartTime,
     onSkip: handleSkipSegment,
-    // Keep skip button visible even when controls auto-hide
-    isVisible: true,
+    isVisible: showControls || !isPlaying,
   });
 
   const handlePlaybackSpeedChange = (speed: number) => {
