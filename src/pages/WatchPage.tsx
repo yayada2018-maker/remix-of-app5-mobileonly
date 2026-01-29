@@ -41,6 +41,10 @@ interface Episode {
   show_id?: string;
   access_type?: 'free' | 'membership' | 'purchase';
   price?: number;
+  // Skip Intro/Outro timestamps
+  intro_start?: number;
+  intro_end?: number;
+  outro_start?: number;
 }
 
 // Collapsible Tabs Section Component for Desktop Right Sidebar
@@ -480,7 +484,7 @@ const WatchPage = () => {
   const [selectedCastMember, setSelectedCastMember] = useState<any>(null);
   const [shorts, setShorts] = useState<any[]>([]);
 
-  // Convert episodes to correct format
+  // Convert episodes to correct format - include skip timestamps!
   const episodes: Episode[] = useMemo(() => rawEpisodes.map(ep => ({
     id: ep.id,
     episode_number: ep.episode_number || 1,
@@ -489,7 +493,11 @@ const WatchPage = () => {
     season_id: ep.season_id,
     show_id: ep.show_id,
     access_type: ep.access_type,
-    price: ep.price
+    price: ep.price,
+    // Skip Intro/Outro timestamps
+    intro_start: ep.intro_start,
+    intro_end: ep.intro_end,
+    outro_start: ep.outro_start,
   })), [rawEpisodes]);
 
   // Filter episodes by selected season
@@ -774,14 +782,14 @@ const WatchPage = () => {
     
     // Get skip timestamps - from episode for series, from content for movies
     const introStart = isSeriesContent 
-      ? (currentEpisode as any)?.intro_start ?? 0 
-      : (content as any)?.intro_start ?? 0;
+      ? currentEpisode?.intro_start ?? 0 
+      : content?.intro_start ?? 0;
     const introEnd = isSeriesContent 
-      ? (currentEpisode as any)?.intro_end ?? undefined 
-      : (content as any)?.intro_end ?? undefined;
+      ? currentEpisode?.intro_end ?? undefined 
+      : content?.intro_end ?? undefined;
     const outroStart = isSeriesContent 
-      ? (currentEpisode as any)?.outro_start ?? undefined 
-      : (content as any)?.outro_start ?? undefined;
+      ? currentEpisode?.outro_start ?? undefined 
+      : content?.outro_start ?? undefined;
     
     return (
       <VideoPlayer 
@@ -804,7 +812,14 @@ const WatchPage = () => {
         outroStartTime={outroStart}
       />
     );
-  }, [videoSources, content?.backdrop_path, content?.id, videoPlayerAccessType, content?.exclude_from_plan, content?.price, content?.purchase_period, content?.title, isSeriesContent, currentEpisode?.price, currentEpisode?.id, currentEpisode?.still_path, contentType, id, displayEpisodes, content, currentEpisode]);
+  }, [
+    videoSources, content?.backdrop_path, content?.id, videoPlayerAccessType, 
+    content?.exclude_from_plan, content?.price, content?.purchase_period, content?.title,
+    content?.intro_start, content?.intro_end, content?.outro_start,
+    isSeriesContent, currentEpisode?.price, currentEpisode?.id, currentEpisode?.still_path, 
+    currentEpisode?.intro_start, currentEpisode?.intro_end, currentEpisode?.outro_start,
+    contentType, id, displayEpisodes, content, currentEpisode
+  ]);
 
   if (loading) {
     return (
