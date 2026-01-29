@@ -23,6 +23,10 @@ interface Episode {
   version?: string;
   access_type?: 'free' | 'membership' | 'purchase';
   price?: number;
+  // Skip Intro/Outro timestamps
+  intro_start?: number;
+  intro_end?: number;
+  outro_start?: number;
 }
 
 interface VideoSource {
@@ -57,6 +61,10 @@ export interface Content {
   price?: number;
   purchase_period?: number;
   cast_members?: string;
+  // Skip Intro/Outro timestamps
+  intro_start?: number;
+  intro_end?: number;
+  outro_start?: number;
 }
 
 export const useContentData = (contentId: string | undefined, type: 'movie' | 'series') => {
